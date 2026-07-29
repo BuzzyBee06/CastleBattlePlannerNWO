@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Castle Battle Planner</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="app">
+
+        <aside id="sidebar">
+            <h2>Players</h2>
+
+            <input
+                type="text"
+                id="playerSearch"
+                placeholder="Search players..."
+            >
+
+            <div id="playerList">
+                <div class="player">Alice</div>
+                <div class="player">Bob</div>
+                <div class="player">Charlie</div>
+            </div>
+            <button id="clearBtn" disabled>Clear Selected Spot</button>
+        </aside>
+
+        <main id="mainContent">
+
+            <header>
+                <h1>Castle Battle Planner</h1>
+            </header>
+
+            <canvas id="battleMap"></canvas>
+
+        </main>
+
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+</html>

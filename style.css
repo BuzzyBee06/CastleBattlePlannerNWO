@@ -1,0 +1,49 @@
+*{
+    box-sizing:border-box;
+}
+
+body{
+    margin:0;
+    font-family:Arial, sans-serif;
+}
+
+#app{
+    display:flex;
+    height:100vh;
+}
+
+#sidebar{
+    width:300px;
+    background:#f0f0f0;
+    padding:20px;
+    border-right:1px solid #ccc;
+}
+
+#playerSearch{
+    width:100%;
+    padding:10px;
+    margin-bottom:15px;
+}
+
+.player{
+    background:white;
+    padding:8px;
+    margin-bottom:5px;
+    border-radius:4px;
+    cursor:pointer;
+}
+
+#mainContent{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+}
+
+header{
+    padding:20px;
+}
+
+#battleMap{
+    border:2px solid black;
+}
