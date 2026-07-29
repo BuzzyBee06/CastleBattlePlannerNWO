@@ -25,12 +25,37 @@ body{
     margin-bottom:15px;
 }
 
+#playerList{
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+}
+
 .player{
     background:white;
     padding:8px;
     margin-bottom:5px;
     border-radius:4px;
     cursor:pointer;
+}
+
+#clearBtn{
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+}
+
+#clearAllBtn{
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+    background:#ffdddd;
+    border:1px solid #cc4444;
+}
+
+.player.assigned{
+    background:#ddd;
+    color:#999;
 }
 
 #mainContent{
