@@ -626,6 +626,19 @@ if(exportBtn){
 
         const { jsPDF } = window.jspdf;
 
+        const scaleFactor = 3;   // render 3x bigger than screen size, for a crisp PDF
+
+        const originalWidth = canvas.width;
+        const originalHeight = canvas.height;
+        const originalTileSize = SETTINGS.tileSize;
+
+        // temporarily switch to high-resolution rendering
+        canvas.width  = originalWidth * scaleFactor;
+        canvas.height = originalHeight * scaleFactor;
+        SETTINGS.tileSize = originalTileSize * scaleFactor;
+
+        drawMap();
+
         const imageData = canvas.toDataURL("image/png");
 
         const orientation = canvas.width >= canvas.height ? "landscape" : "portrait";
@@ -639,6 +652,13 @@ if(exportBtn){
         pdf.addImage(imageData, "PNG", 0, 0, canvas.width, canvas.height);
 
         pdf.save("battle-map.pdf");
+
+        // switch back to normal screen resolution
+        canvas.width  = originalWidth;
+        canvas.height = originalHeight;
+        SETTINGS.tileSize = originalTileSize;
+
+        drawMap();
 
     });
 
