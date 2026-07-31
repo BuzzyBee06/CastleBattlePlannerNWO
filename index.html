@@ -6,6 +6,7 @@
     <title>Castle Battle Planner</title>
 
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -122,7 +123,7 @@
                 <div class="player">DARK JUDEX</div>
 
             </div>
-            
+
             <button id="exportBtn">Export as PDF</button>
             <button id="clearBtn" disabled>Clear Selected Spot</button>
             <button id="clearAllBtn">Clear All</button>
@@ -135,7 +136,18 @@
                 <h1>Castle Battle Planner</h1>
             </header>
 
-            <canvas id="battleMap"></canvas>
+            <div id="mapWrapper">
+
+               <div id="zoomControls">
+    <span id="zoomLabel">Add/Remove Rows</span>
+    <div id="zoomButtonRow">
+        <button id="zoomOutBtn" title="Remove a row (bigger tiles)">−</button>
+        <button id="zoomInBtn" title="Add a row (smaller tiles)">+</button>
+    </div>
+</div>
+                <canvas id="battleMap"></canvas>
+
+            </div>
 
         </main>
 
@@ -145,4 +157,3 @@
 
 </body>
 </html>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

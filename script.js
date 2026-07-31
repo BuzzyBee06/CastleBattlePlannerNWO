@@ -9,21 +9,51 @@ const ctx = canvas.getContext("2d");
 // ---------- Settings ----------
 const SETTINGS = {
 
-    tileSize: 26,        // bigger tiles = more room for readable names
+    tileSize: 26,        // recalculated automatically - this is just a starting value
 
     castleSize: 12,
 
     ringGap: 8,
 
-    mapHalf: 20
+    mapHalf: 14           // default view: castle + gap + red line, nothing more
 };
 
-// canvas size is calculated from the settings above, so it always
-// fits the full diamond grid with a little padding round the edge
-const mapPixelSize = SETTINGS.mapHalf * 2 * SETTINGS.tileSize;
+const MIN_MAP_HALF = Math.ceil(SETTINGS.castleSize / 2) + 2;   // can't zoom in past the castle
+const MAX_MAP_HALF = Math.ceil(SETTINGS.castleSize / 2) + 12;   // castle edge + 12 tiles out                                       // sensible zoomed-out limit
 
-canvas.width  = mapPixelSize + SETTINGS.tileSize;
-canvas.height = mapPixelSize + SETTINGS.tileSize;
+// ---------- Work out tile size to fill a FIXED canvas box ----------
+let fixedAvailableSpace = null;   // recalculated on load and on window resize
+
+function resizeCanvasToFit(){
+
+    const padding = 20;
+
+    const wrapper = document.getElementById("mapWrapper");
+
+    const availableWidth  = wrapper.clientWidth - padding;
+
+    let space = availableWidth * 0.95;
+
+    space = Math.max(space, 300);   // never shrink below a usable minimum size
+
+    fixedAvailableSpace = space;
+
+    canvas.width  = fixedAvailableSpace;
+    canvas.height = fixedAvailableSpace;
+
+    const tilesAcross = SETTINGS.mapHalf * 2 + 1;
+
+    SETTINGS.tileSize = fixedAvailableSpace / tilesAcross;
+
+}
+
+// recalculate the box size if the window is resized (e.g. rotating a phone)
+window.addEventListener("resize", function(){
+
+    resizeCanvasToFit();
+    drawMap();
+
+});
 
 // ---------- Castle Image ----------
 const castleImage = new Image();
@@ -31,18 +61,17 @@ let castleImageLoaded = false;
 
 castleImage.onload = function(){
     castleImageLoaded = true;
-    drawMap();   // redraw once the image is ready, in case it loads after the first draw
+    drawMap();
 };
 
 castleImage.src = "castle.jpg";
 
 
 // ---------- Selection state ----------
-let selectedTile = null;          // { row, col } of a clicked EMPTY tile, ready to assign
-let selectedAssignments = [];      // array of assignment objects currently selected (for clearing)
+let selectedTile = null;
+let selectedAssignments = [];
 
 // ---------- Assigned players ----------
-// each entry: { row, col, name }
 let assignments = [];
 
 // ---------- Colours ----------
@@ -72,9 +101,9 @@ function toScreen(row, col){
 
     return {
         x: canvas.width / 2 + (col - row) * s / 2,
-        y: canvas.height / 2 + (col + row) * s / 2
+        y: canvas.height / 2 + (col + row + 1) * s / 2
     };
-
+S
 }
 
 
@@ -121,8 +150,8 @@ function screenToGrid(x, y){
     const dy = y - canvas.height / 2;
 
     return {
-        row: Math.round(dy / s - dx / s),
-        col: Math.round(dx / s + dy / s)
+        row: Math.round(dy / s - dx / s - 0.5),
+        col: Math.round(dx / s + dy / s - 0.5)
     };
 
 }
@@ -161,6 +190,14 @@ function overlapsAssignment(row, col){
 
 }
 
+// ---------- Is this assignment fully within the current visible area? ----------
+function isAssignmentVisible(a){
+
+    return a.row >= -SETTINGS.mapHalf && (a.row + 1) < SETTINGS.mapHalf &&
+           a.col >= -SETTINGS.mapHalf && (a.col + 1) < SETTINGS.mapHalf;
+
+}
+
 // ---------- Find an assignment covering a given tile (if any) ----------
 function findAssignmentAt(row, col){
 
@@ -176,7 +213,6 @@ function findAssignmentAt(row, col){
 // ---------- Fit text into 1 or 2 lines inside a max width ----------
 function fitTextBlock(text, maxWidth, maxFontSize, minFontSize){
 
-    // try a single line first, shrinking down to the minimum size
     for(let size = maxFontSize; size >= minFontSize; size--){
 
         ctx.font = size + "px Arial";
@@ -187,7 +223,6 @@ function fitTextBlock(text, maxWidth, maxFontSize, minFontSize){
 
     }
 
-    // doesn't fit on one line even at the smallest size - split into 2 lines
     let splitPoint = text.indexOf(" ", Math.floor(text.length / 2) - 3);
 
     if(splitPoint === -1){
@@ -197,7 +232,6 @@ function fitTextBlock(text, maxWidth, maxFontSize, minFontSize){
     let line1 = text.slice(0, splitPoint).trim();
     let line2 = text.slice(splitPoint).trim();
 
-    // try shrinking both lines together to find the largest size that fits
     for(let size = maxFontSize; size >= minFontSize; size--){
 
         ctx.font = size + "px Arial";
@@ -210,7 +244,6 @@ function fitTextBlock(text, maxWidth, maxFontSize, minFontSize){
 
     }
 
-    // still too long even as 2 lines at the smallest size - truncate line 2
     ctx.font = minFontSize + "px Arial";
 
     while(line2.length > 1 && ctx.measureText(line2 + "…").width > maxWidth){
@@ -245,9 +278,12 @@ function drawAssignment(a, isSelected){
 
     const centre = toScreen(a.row + 0.5, a.col + 0.5);
 
-    const maxWidth = s * 1.8;   // available horizontal space in the middle of the block
+    const maxWidth = s * 1.8;
 
-    const fit = fitTextBlock(a.name, maxWidth, 12, 8);
+    const maxFontSize = Math.max(12, Math.round(s * 0.5));
+    const minFontSize = Math.max(8, Math.min(10, Math.round(s * 0.2)));
+
+    const fit = fitTextBlock(a.name, maxWidth, maxFontSize, minFontSize);
 
     ctx.fillStyle = "#000000";
     ctx.font = fit.fontSize + "px Arial";
@@ -271,8 +307,6 @@ function drawCastleImage(){
 
     const castleHalf = SETTINGS.castleSize / 2;
 
-    // same -0.5 offset as the red border, since the castle is an even
-    // size and has no single centre tile
     const low  = -castleHalf - 0.5;
     const high =  castleHalf - 0.5;
 
@@ -281,10 +315,8 @@ function drawCastleImage(){
     const corner3 = toScreen(high, high);
     const corner4 = toScreen(high, low);
 
-    ctx.save();   // remember current drawing settings so we can restore them after
+    ctx.save();
 
-    // define the diamond as a clipping region - anything drawn after this
-    // point will only actually appear INSIDE this shape
     ctx.beginPath();
     ctx.moveTo(corner1.x, corner1.y);
     ctx.lineTo(corner2.x, corner2.y);
@@ -293,16 +325,8 @@ function drawCastleImage(){
     ctx.closePath();
     ctx.clip();
 
-    // ---------- Image adjustment controls ----------
-    // zoom: bigger number = more zoomed OUT (shows more of the image)
-    //       smaller number = more zoomed IN (shows less, more cropped)
     const zoom = 1.1;
-
-    // stretch: 1 = no stretch, higher = taller, lower = shorter/wider-looking
     const verticalStretch = 1.9;
-
-    // nudge the image left/right and up/down without moving the diamond shape
-    // positive = right/down, negative = left/up
     const offsetX = 2;
     const offsetY = -5;
 
@@ -319,7 +343,8 @@ function drawCastleImage(){
         height
     );
 
-    ctx.restore();   // undo the clip, so it doesn't affect anything drawn afterwards
+    ctx.restore();
+
 }
 
 // ---------- Draw Map ----------
@@ -343,7 +368,7 @@ function drawMap(){
             let colour = COLOURS.normal;
 
             if(ringDistance === 0){
-                continue;   // skip drawing a tile here - the castle image covers this area
+                continue;
             }
 
             if(selectedTile &&
@@ -363,28 +388,36 @@ function drawMap(){
     drawCastleImage();
 
     assignments.forEach(function(a){
+
+        if(!isAssignmentVisible(a)) return;
+
         drawAssignment(a, selectedAssignments.includes(a));
+
     });
 
-    const low  = -castleHalf - SETTINGS.ringGap - 0.5;
-    const high =  castleHalf + SETTINGS.ringGap - 0.5;
+    if(SETTINGS.mapHalf >= castleHalf + SETTINGS.ringGap){
 
-    const corner1 = toScreen(low,  low);
-    const corner2 = toScreen(low,  high);
-    const corner3 = toScreen(high, high);
-    const corner4 = toScreen(high, low);
+        const low  = -castleHalf - SETTINGS.ringGap - 0.5;
+        const high =  castleHalf + SETTINGS.ringGap - 0.5;
 
-    ctx.beginPath();
-    ctx.moveTo(corner1.x, corner1.y);
-    ctx.lineTo(corner2.x, corner2.y);
-    ctx.lineTo(corner3.x, corner3.y);
-    ctx.lineTo(corner4.x, corner4.y);
-    ctx.closePath();
+        const corner1 = toScreen(low,  low);
+        const corner2 = toScreen(low,  high);
+        const corner3 = toScreen(high, high);
+        const corner4 = toScreen(high, low);
 
-    ctx.strokeStyle = COLOURS.ring;
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(corner1.x, corner1.y);
+        ctx.lineTo(corner2.x, corner2.y);
+        ctx.lineTo(corner3.x, corner3.y);
+        ctx.lineTo(corner4.x, corner4.y);
+        ctx.closePath();
+
+        ctx.strokeStyle = COLOURS.ring;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.lineWidth = 1;
+
+    }
 
 }
 
@@ -416,6 +449,17 @@ function updateClearButton(){
             ? "Clear Selected (" + selectedAssignments.length + ")"
             : "Clear Selected Spot";
     }
+
+}
+
+// ---------- Enable/disable the zoom buttons at their limits ----------
+function updateZoomButtons(){
+
+    const zoomInBtn = document.getElementById("zoomInBtn");
+    const zoomOutBtn = document.getElementById("zoomOutBtn");
+
+    if(zoomInBtn) zoomInBtn.disabled = (SETTINGS.mapHalf >= MAX_MAP_HALF);
+    if(zoomOutBtn) zoomOutBtn.disabled = (SETTINGS.mapHalf <= MIN_MAP_HALF);
 
 }
 
@@ -582,10 +626,8 @@ if(exportBtn){
 
         const { jsPDF } = window.jspdf;
 
-        // grab a snapshot of the canvas as an image
         const imageData = canvas.toDataURL("image/png");
 
-        // work out orientation based on the canvas shape
         const orientation = canvas.width >= canvas.height ? "landscape" : "portrait";
 
         const pdf = new jsPDF({
@@ -602,4 +644,39 @@ if(exportBtn){
 
 }
 
+// ---------- Handle Zoom buttons ----------
+const zoomInBtn = document.getElementById("zoomInBtn");
+const zoomOutBtn = document.getElementById("zoomOutBtn");
+
+if(zoomInBtn){
+
+    zoomInBtn.addEventListener("click", function(){
+
+        SETTINGS.mapHalf = Math.min(MAX_MAP_HALF, SETTINGS.mapHalf + 1);
+
+        resizeCanvasToFit();
+        updateZoomButtons();
+        drawMap();
+
+    });
+
+}
+
+if(zoomOutBtn){
+
+    zoomOutBtn.addEventListener("click", function(){
+
+        SETTINGS.mapHalf = Math.max(MIN_MAP_HALF, SETTINGS.mapHalf - 1);
+
+        resizeCanvasToFit();
+        updateZoomButtons();
+        drawMap();
+
+    });
+
+}
+
+// ---------- Initial load ----------
+resizeCanvasToFit();
+updateZoomButtons();
 drawMap();
