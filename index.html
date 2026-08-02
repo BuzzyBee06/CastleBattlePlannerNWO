@@ -13,122 +13,32 @@
     <div id="app">
 
         <aside id="sidebar">
-            <h2>Players</h2>
+    <h2>Players</h2>
 
-            <input
-                type="text"
-                id="playerSearch"
-                placeholder="Search players..."
-            >
+    <input
+        type="text"
+        id="playerSearch"
+        placeholder="Search players..."
+    >
 
-            <div id="playerList">
-                <div class="player">Patrick</div>
-                <div class="player">Tzimakas</div>
-                <div class="player">XXX</div>
-                <div class="player">LFQ</div>
-                <div class="player">Pentagram</div>
-                <div class="player">Hellish Zero</div>
-                <div class="player">Drazork</div>
-                <div class="player">VeryBabs</div>
-                <div class="player">BuzzyBee</div>
-                <div class="player">Suhaib</div>
-                <div class="player">Thanos_D</div>
-                <div class="player">Meee</div>
-                <div class="player">Mburumbu</div>
-                <div class="player">Maximus Slay</div>
-                <div class="player">DrZdrowko</div>
-                <div class="player">Chat88</div>
-                <div class="player">Smenz</div>
-                <div class="player">hell yea brother</div>
-                <div class="player">Ignite 44</div>
-                <div class="player">Signo</div>
-                <div class="player">LL_H4D3S</div>
-                <div class="player">Kaladin</div>
-                <div class="player">meshal</div>
-                <div class="player">justme</div>
-                <div class="player">Lord Freedom</div>
-                <div class="player">Raven</div>
-                <div class="player">Fro1ic</div>
-                <div class="player">Baba</div>
-                <div class="player">yong</div>
-                <div class="player">LIONHEART</div>
-                <div class="player">snemil</div>
-                <div class="player">Lady Bramble</div>
-                <div class="player">Hany29</div>
-                <div class="player">TheHengus</div>
-                <div class="player">ashfaq</div>
-                <div class="player">mda</div>
-                <div class="player">Rabbit Striker</div>
-                <div class="player">Alfy c/o GoW</div>
-                <div class="player">lordjbtonytj</div>
-                <div class="player">Hartsod</div>
-                <div class="player">Szunaj53</div>
-                <div class="player">Derek</div>
-                <div class="player">The HELMSMAN</div>
-                <div class="player">SCIPIONE</div>
-                <div class="player">Okruch</div>
-                <div class="player">Sclam83</div>
-                <div class="player">Levi</div>
-                <div class="player">Gwilla</div>
-                <div class="player">Strasni</div>
-                <div class="player">Mezo977</div>
-                <div class="player">Peaceful</div>
-                <div class="player">punchdrunk</div>
-                <div class="player">Meow Mike</div>
-                <div class="player">Cs12lord</div>
-                <div class="player">LUKAS</div>
-                <div class="player">Tech</div>
-                <div class="player">Mrven</div>
-                <div class="player">Kasajaka</div>
-                <div class="player">Da_Fuori</div>
-                <div class="player">Crystal Mage</div>
-                <div class="player">Jardin</div>
-                <div class="player">SHARK</div>
-                <div class="player">Agent_K</div>
-                <div class="player">Mimi</div>
-                <div class="player">Fetty</div>
-                <div class="player">Pamster</div>
-                <div class="player">egnaro</div>
-                <div class="player">Antonio Macedon</div>
-                <div class="player">K1an</div>
-                <div class="player">Eravier</div>
-                <div class="player">BrazUs</div>
-                <div class="player">Borys 80</div>
-                <div class="player">GDL</div>
-                <div class="player">Old Gregg</div>
-                <div class="player">EEE</div>
-                <div class="player">Ursula</div>
-                <div class="player">GatotKaca</div>
-                <div class="player">Rose'sSword</div>
-                <div class="player">Abhi</div>
-                <div class="player">Lord Rosco</div>
-                <div class="player">Kortez von Serb</div>
-                <div class="player">MeRco</div>
-                <div class="player">Patient_Robo</div>
-                <div class="player">SABIO SEI</div>
-                <div class="player">The GreenHornet</div>
-                <div class="player">Bats</div>
-                <div class="player">Remix</div>
-                <div class="player">gale</div>
-                <div class="player">Tora Tora Tora</div>
-                <div class="player">Feanor</div>
-                <div class="player">KAPITAN BOMBA</div>
-                <div class="player">zeynep123</div>
-                <div class="player">Aboalzeen00#f2p#</div>
-                <div class="player">Romeo</div>
-                <div class="player">Heiachi59</div>
-                <div class="player">JoshTG100</div>
-                <div class="player">TYRA</div>
-                <div class="player">PsychoBear</div>
-                <div class="player">DARK JUDEX</div>
+    <div id="playerList">
+        <!-- player names are now loaded automatically from players.json -->
+    </div>
 
-            </div>
+    <div id="rallyControls">
+        <label for="rallySelect">Rally:</label>
+        <select id="rallySelect"></select>
+        <button id="setRallyBtn">Set Rally for Selected</button>
+    </div>
 
-            <button id="exportBtn">Export as PDF</button>
-            <button id="clearBtn" disabled>Clear Selected Spot</button>
-            <button id="clearAllBtn">Clear All</button>
+    <button id="clearBtn" disabled>Clear Selected Spot</button>
+    <button id="clearAllBtn">Clear All</button>
+    <button id="exportBtn">Export as PDF</button>
+    <button id="saveProjectBtn">Save Project</button>
+    <button id="loadProjectBtn">Load Project</button>
+    <input type="file" id="loadProjectInput" accept=".json" style="display:none">
 
-        </aside>
+</aside>
 
         <main id="mainContent">
 
@@ -138,16 +48,22 @@
 
             <div id="mapWrapper">
 
-               <div id="zoomControls">
-    <span id="zoomLabel">Add/Remove Rows</span>
-    <div id="zoomButtonRow">
-        <button id="zoomOutBtn" title="Remove a row (bigger tiles)">−</button>
-        <button id="zoomInBtn" title="Add a row (smaller tiles)">+</button>
-    </div>
-</div>
+                <div id="zoomControls">
+                    <span id="zoomLabel">Add/Remove Rows</span>
+                    <div id="zoomButtonRow">
+                        <button id="zoomOutBtn" title="Remove a row (bigger tiles)">−</button>
+                        <button id="zoomInBtn" title="Add a row (smaller tiles)">+</button>
+                    </div>
+                </div>
+
                 <canvas id="battleMap"></canvas>
 
             </div>
+
+            <div id="rallyOverview">
+    <h2>Rally Overview</h2>
+    <div id="rallyOverviewList"></div>
+</div>
 
         </main>
 

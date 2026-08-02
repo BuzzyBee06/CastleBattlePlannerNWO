@@ -37,6 +37,7 @@ body{
     margin-bottom:5px;
     border-radius:4px;
     cursor:pointer;
+    user-select: none;
 }
 
 #clearBtn{
@@ -49,8 +50,15 @@ body{
     width:100%;
     padding:10px;
     margin-top:10px;
+    margin-bottom:25px;
     background:#ffdddd;
     border:1px solid #cc4444;
+}
+
+#saveProjectBtn, #loadProjectBtn{
+    width:100%;
+    padding:10px;
+    margin-top:10px;
 }
 
 .player.assigned{
@@ -63,6 +71,7 @@ body{
     display:flex;
     flex-direction:column;
     align-items:center;
+    overflow-y:auto;
 }
 
 header{
@@ -71,18 +80,16 @@ header{
 
 #mapWrapper{
     position:relative;
-    flex:1;
     width:100%;
     display:flex;
     justify-content:center;
     align-items:flex-start;
-    overflow:auto;
 }
 
 #zoomControls{
     position:absolute;
     top:10px;
-    right:35px;
+    right:40px;
     display:flex;
     flex-direction:column;
     align-items:center;
@@ -117,4 +124,136 @@ header{
 
 #battleMap{
     border:2px solid black;
+}
+
+#rallyControls{
+    margin-top:15px;
+    margin-bottom:15px;
+}
+
+#rallySelect{
+    width:100%;
+    padding:6px;
+    margin-bottom:6px;
+}
+
+#setRallyBtn{
+    width:100%;
+    padding:8px;
+}
+
+.player{
+    border-left:6px solid transparent;
+}
+
+#rallyOverview{
+    width:100%;
+    padding:20px;
+    border-top:1px solid #ccc;
+}
+
+.rallyCard{
+    margin-bottom:15px;
+    border:1px solid #ccc;
+    border-radius:6px;
+    padding:10px;
+}
+
+.rallyCardHeader{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:8px;
+}
+
+.rallySwatch{
+    width:20px;
+    height:20px;
+    border-radius:4px;
+    flex-shrink:0;
+}
+
+.rallyNameInput{
+    flex:1;
+    padding:6px;
+    font-weight:bold;
+}
+
+.rallyMemberList{
+    list-style:none;
+    padding:0;
+    margin:0;
+}
+
+.rallyDescriptionInput{
+    display:block;
+    box-sizing:border-box;
+    width:100%;
+    padding:6px;
+    margin-bottom:8px;
+    font-size:13px;
+    resize:vertical;
+}
+
+.rallyMemberRow{
+    display:flex;
+    align-items:flex-start;
+    gap:60px;
+    padding:6px 8px;
+    background:#f7f7f7;
+    border-radius:4px;
+    margin-bottom:4px;
+    user-select:none;
+}
+
+.rallyMemberNameCol{
+    flex:0 0 33%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+}
+
+.rallyMemberHeroCol{
+    flex:0 0 25%;
+}
+
+.rallyHeroSelect{
+    width:100%;
+    height:60px;
+    font-size:12px;
+}
+
+.rallyMemberNoteCol{
+    flex:1;
+}
+
+.rallyMemberNoteInput{
+    width:100%;
+    padding:4px 6px;
+    font-size:12px;
+    border:1px solid #ddd;
+    border-radius:4px;
+}
+
+.rallyMemberButtons button{
+    width:24px;
+    height:24px;
+    margin-left:4px;
+    cursor:pointer;
+}
+
+.rallyAddRow{
+    display:flex;
+    gap:6px;
+    margin-top:8px;
+}
+
+.rallyAddSelect{
+    flex:1;
+    padding:6px;
+}
+
+.rallyAddRow button{
+    padding:6px 12px;
+    cursor:pointer;
 }

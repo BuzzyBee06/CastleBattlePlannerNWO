@@ -9,22 +9,23 @@ const ctx = canvas.getContext("2d");
 // ---------- Settings ----------
 const SETTINGS = {
 
-    tileSize: 26,        // recalculated automatically - this is just a starting value
+    tileSize: 26,
 
     castleSize: 12,
 
     ringGap: 8,
 
-    mapHalf: 14           // default view: castle + gap + red line, nothing more
+    mapHalf: 14
 };
 
-const MIN_MAP_HALF = Math.ceil(SETTINGS.castleSize / 2) + 2;   // can't zoom in past the castle
-const MAX_MAP_HALF = Math.ceil(SETTINGS.castleSize / 2) + 12;   // castle edge + 12 tiles out                                       // sensible zoomed-out limit
+const MIN_MAP_HALF = Math.ceil(SETTINGS.castleSize / 2) + 2;
+const MAX_MAP_HALF = Math.ceil(SETTINGS.castleSize / 2) + 12;
 
 // ---------- Work out tile size to fill a FIXED canvas box ----------
-let fixedAvailableSpace = null;   // recalculated on load and on window resize
+let fixedAvailableSpace = null;
 
-function resizeCanvasToFit(){
+// measures screen space and locks the canvas box size - only call on load/window resize
+function measureAndSetCanvasSize(){
 
     const padding = 20;
 
@@ -34,12 +35,17 @@ function resizeCanvasToFit(){
 
     let space = availableWidth * 0.95;
 
-    space = Math.max(space, 300);   // never shrink below a usable minimum size
+    space = Math.max(space, 300);
 
     fixedAvailableSpace = space;
 
     canvas.width  = fixedAvailableSpace;
     canvas.height = fixedAvailableSpace;
+
+}
+
+// recalculates tile size to fit the CURRENT zoom level into the already-fixed box
+function updateTileSizeForZoom(){
 
     const tilesAcross = SETTINGS.mapHalf * 2 + 1;
 
@@ -47,10 +53,10 @@ function resizeCanvasToFit(){
 
 }
 
-// recalculate the box size if the window is resized (e.g. rotating a phone)
 window.addEventListener("resize", function(){
 
-    resizeCanvasToFit();
+    measureAndSetCanvasSize();
+    updateTileSizeForZoom();
     drawMap();
 
 });
@@ -74,24 +80,40 @@ let selectedAssignments = [];
 // ---------- Assigned players ----------
 let assignments = [];
 
+// ---------- Player list (loaded from players.json) ----------
+let playerNames = [];
+
 // ---------- Colours ----------
 const COLOURS = {
 
     normal: "#f7f7f7",
-
     border: "#999999",
-
     castle: "#888888",
-
     ring: "#ff3333",
-
     highlight: "#3399ff",
-
     assignedBorder: "#000000",
-
     selectedAssignedBorder: "#ff9900"
 
 };
+
+// ---------- Rally colours ----------
+const RALLIES = [
+    { name: "Rally 1", colour: "#3e23c7ff", members: [], description: "" },
+    { name: "Rally 2", colour: "#88CCEE", members: [], description: "" },
+    { name: "Rally 3", colour: "#26d2b6ff", members: [], description: "" },
+    { name: "Rally 4", colour: "#ea81b4ff", members: [], description: "" },
+    { name: "Rally 5", colour: "#e33e02ff", members: [], description: "" },
+    { name: "Rally 6", colour: "#8c75e9ff", members: [], description: "" },
+    { name: "Rally 7", colour: "#0b8d32ff", members: [], description: "" },
+    { name: "Rally 8", colour: "#770d1dff", members: [], description: "" },
+    { name: "Rally 9", colour: "#bd29d1ff", members: [], description: "" }
+];
+
+// ---------- Available joining heroes (edit this list as needed) ----------
+const JOINING_HEROES = [
+    "Amane", "Chenko", "Hilde", "Saul", "Eric",
+    "Gordon"
+];
 
 
 // ---------- Convert grid position -> screen position ----------
@@ -103,9 +125,44 @@ function toScreen(row, col){
         x: canvas.width / 2 + (col - row) * s / 2,
         y: canvas.height / 2 + (col + row + 1) * s / 2
     };
-S
+
 }
 
+// ---------- Convert a hex colour (6 or 8 digit) to RGB values for PDF text colouring ----------
+function hexToRgb(hex){
+
+    let h = hex.replace("#", "");
+
+    if(h.length === 8) h = h.slice(0, 6);   // drop alpha channel if present
+    if(h.length === 3) h = h.split("").map(function(c){ return c + c; }).join("");
+
+    const num = parseInt(h, 16);
+
+    return {
+        r: (num >> 16) & 255,
+        g: (num >> 8) & 255,
+        b: num & 255
+    };
+
+}
+
+// ---------- Move a point a fixed pixel distance toward a target point ----------
+function moveToward(point, target, amount){
+
+    const dx = target.x - point.x;
+    const dy = target.y - point.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if(dist === 0) return point;
+
+    const ratio = amount / dist;
+
+    return {
+        x: point.x + dx * ratio,
+        y: point.y + dy * ratio
+    };
+
+}
 
 // ---------- Draw One Diamond Tile ----------
 function drawTile(x, y, colour){
@@ -190,14 +247,6 @@ function overlapsAssignment(row, col){
 
 }
 
-// ---------- Is this assignment fully within the current visible area? ----------
-function isAssignmentVisible(a){
-
-    return a.row >= -SETTINGS.mapHalf && (a.row + 1) < SETTINGS.mapHalf &&
-           a.col >= -SETTINGS.mapHalf && (a.col + 1) < SETTINGS.mapHalf;
-
-}
-
 // ---------- Find an assignment covering a given tile (if any) ----------
 function findAssignmentAt(row, col){
 
@@ -207,6 +256,22 @@ function findAssignmentAt(row, col){
                col >= a.col && col <= a.col + 1;
 
     });
+
+}
+
+// ---------- Is this assignment fully within the current visible area? ----------
+function isAssignmentFullyVisible(a){
+
+    return a.row >= -SETTINGS.mapHalf && (a.row + 1) < SETTINGS.mapHalf &&
+           a.col >= -SETTINGS.mapHalf && (a.col + 1) < SETTINGS.mapHalf;
+
+}
+
+// ---------- Is any part of this assignment within the current visible area? ----------
+function isAssignmentPartiallyVisible(a){
+
+    return (a.row + 1) >= -SETTINGS.mapHalf && a.row < SETTINGS.mapHalf &&
+           (a.col + 1) >= -SETTINGS.mapHalf && a.col < SETTINGS.mapHalf;
 
 }
 
@@ -254,8 +319,8 @@ function fitTextBlock(text, maxWidth, maxFontSize, minFontSize){
 
 }
 
-// ---------- Draw an assigned player's 2x2 block ----------
-function drawAssignment(a, isSelected){
+// ---------- Draw just the border of an assigned player's 2x2 block ----------
+function drawAssignmentBorder(a, isSelected){
 
     const s = SETTINGS.tileSize;
 
@@ -264,20 +329,38 @@ function drawAssignment(a, isSelected){
     const bottomPt = toScreen(a.row + 1, a.col + 1);
     const leftPt   = toScreen(a.row + 1, a.col);
 
+    const centre = toScreen(a.row + 0.5, a.col + 0.5);
+
+    const inset = Math.max(2, s * 0.08);
+
+    const topTip    = moveToward({ x: topPt.x,            y: topPt.y - s / 2 },    centre, inset);
+    const rightTip  = moveToward({ x: rightPt.x + s / 2,   y: rightPt.y },          centre, inset);
+    const bottomTip = moveToward({ x: bottomPt.x,          y: bottomPt.y + s / 2 }, centre, inset);
+    const leftTip   = moveToward({ x: leftPt.x - s / 2,    y: leftPt.y },           centre, inset);
+
     ctx.beginPath();
-    ctx.moveTo(topPt.x, topPt.y - s / 2);
-    ctx.lineTo(rightPt.x + s / 2, rightPt.y);
-    ctx.lineTo(bottomPt.x, bottomPt.y + s / 2);
-    ctx.lineTo(leftPt.x - s / 2, leftPt.y);
+    ctx.moveTo(topTip.x, topTip.y);
+    ctx.lineTo(rightTip.x, rightTip.y);
+    ctx.lineTo(bottomTip.x, bottomTip.y);
+    ctx.lineTo(leftTip.x, leftTip.y);
     ctx.closePath();
 
-    ctx.strokeStyle = isSelected ? COLOURS.selectedAssignedBorder : COLOURS.assignedBorder;
+    const rallyIndex = getPlayerRally(a.name);
+    const rallyColour = (rallyIndex !== -1) ? RALLIES[rallyIndex].colour : COLOURS.assignedBorder;
+
+    ctx.strokeStyle = isSelected ? COLOURS.selectedAssignedBorder : rallyColour;
     ctx.lineWidth = 3;
     ctx.stroke();
     ctx.lineWidth = 1;
 
-    const centre = toScreen(a.row + 0.5, a.col + 0.5);
+}
 
+// ---------- Draw just the name of an assigned player, centred in their 2x2 block ----------
+function drawAssignmentName(a){
+
+    const s = SETTINGS.tileSize;
+
+    const centre = toScreen(a.row + 0.5, a.col + 0.5);
     const maxWidth = s * 1.8;
 
     const maxFontSize = Math.max(12, Math.round(s * 0.5));
@@ -387,11 +470,12 @@ function drawMap(){
 
     drawCastleImage();
 
+    // borders first - the red line will draw on top of these
     assignments.forEach(function(a){
 
-        if(!isAssignmentVisible(a)) return;
+        if(!isAssignmentPartiallyVisible(a)) return;
 
-        drawAssignment(a, selectedAssignments.includes(a));
+        drawAssignmentBorder(a, selectedAssignments.includes(a));
 
     });
 
@@ -419,6 +503,474 @@ function drawMap(){
 
     }
 
+    // names last, so they always stay readable on top of the red line
+    assignments.forEach(function(a){
+
+        if(!isAssignmentPartiallyVisible(a)) return;
+
+        drawAssignmentName(a);
+
+    });
+
+}
+
+// ---------- Load player list from a published Google Sheet, then build the sidebar ----------
+const PLAYERS_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRQOX9P-FouLRInDSPJvEYPygcvYVOnwcgEIDv720UyXUBFJBP_6aVdQeTPY2RHZwJESYkfviW4cUOa/pub?output=csv";
+
+function loadPlayerList(){
+
+    fetch(PLAYERS_SHEET_URL)
+        .then(function(response){
+            return response.text();
+        })
+        .then(function(csvText){
+
+            playerNames = csvText
+                .split("\n")
+                .map(function(line){
+                    return line.replace(/"/g, "").trim();
+                })
+                .filter(function(name){
+                    return name.length > 0;
+                });
+
+            buildPlayerListUI();
+            restoreAutoSave();
+            removeAssignmentsForMissingPlayers();
+            buildRallyOverview();
+            drawMap();
+
+        })
+        .catch(function(error){
+            console.error("Could not load player list from Google Sheets", error);
+        });
+
+}
+
+// ---------- Build the rally dropdown options ----------
+function buildRallyOptions(){
+
+    const select = document.getElementById("rallySelect");
+
+    if(!select) return;
+
+    const noneOption = document.createElement("option");
+    noneOption.value = -1;
+    noneOption.textContent = "No Rally";
+    select.appendChild(noneOption);
+
+    RALLIES.forEach(function(rally, index){
+
+        const option = document.createElement("option");
+        option.id = "rallyOption-" + index;
+        option.value = index;
+        option.textContent = rally.name;
+
+        select.appendChild(option);
+
+    });
+
+}
+
+// ---------- Build the "who's in which rally" panel below the map ----------
+function buildRallyOverview(){
+
+    const container = document.getElementById("rallyOverviewList");
+
+    if(!container) return;
+
+    container.innerHTML = "";
+
+    RALLIES.forEach(function(rally, rallyIndex){
+
+        const card = document.createElement("div");
+        card.className = "rallyCard";
+
+        const header = document.createElement("div");
+        header.className = "rallyCardHeader";
+
+        const swatch = document.createElement("div");
+        swatch.className = "rallySwatch";
+        swatch.style.background = rally.colour;
+
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.className = "rallyNameInput";
+        nameInput.value = rally.name;
+
+        nameInput.addEventListener("input", function(){
+            rally.name = nameInput.value;
+            const option = document.getElementById("rallyOption-" + rallyIndex);
+            if(option) option.textContent = rally.name;
+            saveAutoSave();
+        });
+
+        header.appendChild(swatch);
+        header.appendChild(nameInput);
+        card.appendChild(header);
+
+        const descInput = document.createElement("textarea");
+        descInput.className = "rallyDescriptionInput";
+        descInput.placeholder = "Rally notes";
+        descInput.rows = 2;
+        descInput.value = rally.description || "";
+
+        descInput.addEventListener("input", function(){
+            rally.description = descInput.value;
+            saveAutoSave();
+        });
+
+        card.appendChild(descInput);
+
+        const list = document.createElement("ul");
+        list.className = "rallyMemberList";
+
+        if(rally.members.length === 0){
+
+            const empty = document.createElement("div");
+            empty.style.color = "#999";
+            empty.style.fontSize = "13px";
+            empty.textContent = "No players assigned";
+            list.appendChild(empty);
+
+        } else {
+
+            rally.members.forEach(function(member, i){
+
+                const row = document.createElement("li");
+                row.className = "rallyMemberRow";
+
+                // --- column 1: name + controls (~1/3 width) ---
+                const nameCol = document.createElement("div");
+                nameCol.className = "rallyMemberNameCol";
+
+                const label = document.createElement("span");
+                label.textContent = (i === 0 ? "★ " : "") + member.name;
+
+                const btnGroup = document.createElement("span");
+                btnGroup.className = "rallyMemberButtons";
+
+                const leaderBtn = document.createElement("button");
+                leaderBtn.textContent = "★";
+                leaderBtn.title = "Make rally leader";
+                leaderBtn.disabled = (i === 0);
+                leaderBtn.addEventListener("click", function(){
+                    makeRallyLeader(rallyIndex, member.name);
+                });
+
+                const upBtn = document.createElement("button");
+                upBtn.textContent = "↑";
+                upBtn.title = "Move up";
+                upBtn.disabled = (i === 0);
+                upBtn.addEventListener("click", function(){
+                    moveRallyMember(rallyIndex, member.name, "up");
+                });
+
+                const downBtn = document.createElement("button");
+                downBtn.textContent = "↓";
+                downBtn.title = "Move down";
+                downBtn.disabled = (i === rally.members.length - 1);
+                downBtn.addEventListener("click", function(){
+                    moveRallyMember(rallyIndex, member.name, "down");
+                });
+
+                const removeBtn = document.createElement("button");
+                removeBtn.textContent = "×";
+                removeBtn.title = "Remove from rally";
+                removeBtn.addEventListener("click", function(){
+                    removeFromRally(rallyIndex, member.name);
+                });
+
+                btnGroup.appendChild(leaderBtn);
+                btnGroup.appendChild(upBtn);
+                btnGroup.appendChild(downBtn);
+                btnGroup.appendChild(removeBtn);
+
+                nameCol.appendChild(label);
+                nameCol.appendChild(btnGroup);
+
+                // --- column 2: joining hero(es) ---
+                const heroCol = document.createElement("div");
+                heroCol.className = "rallyMemberHeroCol";
+
+                const heroSelect = document.createElement("select");
+                heroSelect.className = "rallyHeroSelect";
+                heroSelect.multiple = true;
+                heroSelect.title = "Ctrl/Cmd-click to select more than one hero";
+
+                JOINING_HEROES.forEach(function(hero){
+                    const opt = document.createElement("option");
+                    opt.value = hero;
+                    opt.textContent = hero;
+                    opt.selected = (member.heroes || []).includes(hero);
+                    heroSelect.appendChild(opt);
+                });
+
+                heroSelect.addEventListener("change", function(){
+
+                    const selected = Array.from(heroSelect.selectedOptions).map(function(o){
+                        return o.value;
+                    });
+
+                    member.heroes = selected;
+                    saveAutoSave();
+
+                });
+
+                heroCol.appendChild(heroSelect);
+
+                // --- column 3: free text notes ---
+                const noteCol = document.createElement("div");
+                noteCol.className = "rallyMemberNoteCol";
+
+                const noteInput = document.createElement("input");
+                noteInput.type = "text";
+                noteInput.className = "rallyMemberNoteInput";
+                noteInput.placeholder = "Notes...";
+                noteInput.value = member.note || "";
+
+                noteInput.addEventListener("input", function(){
+                    member.note = noteInput.value;
+                    saveAutoSave();
+                });
+
+                noteCol.appendChild(noteInput);
+
+                row.appendChild(nameCol);
+                row.appendChild(heroCol);
+                row.appendChild(noteCol);
+
+                list.appendChild(row);
+
+            });
+
+        }
+
+        card.appendChild(list);
+
+        const addRow = document.createElement("div");
+        addRow.className = "rallyAddRow";
+
+        const addSelect = document.createElement("select");
+        addSelect.className = "rallyAddSelect";
+
+        const availableNames = playerNames.filter(function(name){
+            return !rally.members.some(function(m){ return m.name === name; });
+        });
+
+        if(availableNames.length === 0){
+            const opt = document.createElement("option");
+            opt.textContent = "No players available";
+            addSelect.appendChild(opt);
+            addSelect.disabled = true;
+        } else {
+            availableNames.forEach(function(name){
+                const opt = document.createElement("option");
+                opt.value = name;
+                opt.textContent = name;
+                addSelect.appendChild(opt);
+            });
+        }
+
+        const addBtn = document.createElement("button");
+        addBtn.textContent = "Add";
+        addBtn.disabled = (availableNames.length === 0);
+        addBtn.addEventListener("click", function(){
+
+            const name = addSelect.value;
+            const currentRally = getPlayerRally(name);
+
+            if(currentRally !== -1 && currentRally !== rallyIndex){
+                const confirmed = confirm(name + " is already in " + RALLIES[currentRally].name + ". Move them to " + rally.name + "?");
+                if(!confirmed) return;
+            }
+
+            addPlayerToRally(rallyIndex, name);
+
+        });
+
+        addRow.appendChild(addSelect);
+        addRow.appendChild(addBtn);
+        card.appendChild(addRow);
+
+        container.appendChild(card);
+
+    });
+
+}
+
+// ---------- Find which rally (if any) a player belongs to ----------
+function getPlayerRally(name){
+
+    for(let i = 0; i < RALLIES.length; i++){
+        if(RALLIES[i].members.some(function(m){ return m.name === name; })) return i;
+    }
+
+    return -1;
+
+}
+
+// ---------- Move a player into a rally (removing them from any other first) ----------
+function setPlayerRally(name, rallyIndex){
+
+    let existingHeroes = [];
+    let existingNote = "";
+
+    RALLIES.forEach(function(rally){
+        const idx = rally.members.findIndex(function(m){ return m.name === name; });
+        if(idx !== -1){
+            existingHeroes = rally.members[idx].heroes || [];
+            existingNote = rally.members[idx].note || "";
+            rally.members.splice(idx, 1);
+        }
+    });
+
+    if(rallyIndex >= 0 && RALLIES[rallyIndex]){
+        RALLIES[rallyIndex].members.push({ name: name, heroes: existingHeroes, note: existingNote });
+    }
+
+}
+
+// ---------- Add a player to a rally via the overview panel ----------
+function addPlayerToRally(rallyIndex, name){
+
+    setPlayerRally(name, rallyIndex);
+
+    updatePlayerListStyles();
+    buildRallyOverview();
+    drawMap();
+    saveAutoSave();
+
+}
+
+// ---------- Remove a player from their rally via the overview panel ----------
+function removeFromRally(rallyIndex, name){
+
+    setPlayerRally(name, -1);
+
+    updatePlayerListStyles();
+    buildRallyOverview();
+    drawMap();
+    saveAutoSave();
+
+}
+
+// ---------- Jump a player straight to the top (leader) of their rally ----------
+function makeRallyLeader(rallyIndex, name){
+
+    const members = RALLIES[rallyIndex].members;
+    const idx = members.findIndex(function(m){ return m.name === name; });
+
+    if(idx <= 0) return;
+
+    const item = members[idx];
+    members.splice(idx, 1);
+    members.unshift(item);
+
+    buildRallyOverview();
+    saveAutoSave();
+
+}
+
+// ---------- Reorder a player within their rally ----------
+function moveRallyMember(rallyIndex, name, direction){
+
+    const members = RALLIES[rallyIndex].members;
+    const idx = members.findIndex(function(m){ return m.name === name; });
+
+    if(idx === -1) return;
+
+    const swapWith = direction === "up" ? idx - 1 : idx + 1;
+
+    if(swapWith < 0 || swapWith >= members.length) return;
+
+    const temp = members[idx];
+    members[idx] = members[swapWith];
+    members[swapWith] = temp;
+
+    buildRallyOverview();
+    saveAutoSave();
+
+}
+
+// ---------- Build the player list in the sidebar ----------
+function buildPlayerListUI(){
+
+    const listEl = document.getElementById("playerList");
+
+    listEl.innerHTML = "";
+
+    playerNames.forEach(function(name){
+
+        const div = document.createElement("div");
+        div.className = "player";
+        div.textContent = name;
+
+        div.addEventListener("click", function(){
+            handlePlayerClick(name);
+        });
+
+        listEl.appendChild(div);
+
+    });
+
+    updatePlayerListStyles();
+    buildRallyOverview();
+
+}
+
+// ---------- Handle a click on a player's name in the sidebar ----------
+function handlePlayerClick(name){
+
+    const existing = assignments.find(function(a){
+        return a.name === name;
+    });
+
+    if(existing){
+        selectedAssignments = [existing];
+        selectedTile = null;
+        updateClearButton();
+        drawMap();
+        return;
+    }
+
+    if(!selectedTile) return;
+
+    assignments.push({
+        row: selectedTile.row,
+        col: selectedTile.col,
+        name: name
+    });
+
+    selectedTile = null;
+
+    updateClearButton();
+    updatePlayerListStyles();
+    buildRallyOverview();
+    drawMap();
+    saveAutoSave();
+
+}
+
+// ---------- Remove any assignments for players no longer in the current roster ----------
+function removeAssignmentsForMissingPlayers(){
+
+    const before = assignments.length;
+
+    assignments = assignments.filter(function(a){
+        return playerNames.includes(a.name);
+    });
+
+    RALLIES.forEach(function(rally){
+        rally.members = rally.members.filter(function(m){
+            return playerNames.includes(m.name);
+        });
+    });
+
+    if(assignments.length !== before){
+        saveAutoSave();
+    }
+
 }
 
 // ---------- Keep the sidebar list in sync with assignments ----------
@@ -428,11 +980,14 @@ function updatePlayerListStyles(){
 
         const name = playerEl.textContent;
 
-        const isAssigned = assignments.some(function(a){
+        const existing = assignments.find(function(a){
             return a.name === name;
         });
 
-        playerEl.classList.toggle("assigned", isAssigned);
+        playerEl.classList.toggle("assigned", !!existing);
+
+        const rallyIndex = getPlayerRally(name);
+        playerEl.style.borderLeftColor = (rallyIndex !== -1) ? RALLIES[rallyIndex].colour : "transparent";
 
     });
 
@@ -460,6 +1015,81 @@ function updateZoomButtons(){
 
     if(zoomInBtn) zoomInBtn.disabled = (SETTINGS.mapHalf >= MAX_MAP_HALF);
     if(zoomOutBtn) zoomOutBtn.disabled = (SETTINGS.mapHalf <= MIN_MAP_HALF);
+
+}
+
+// ---------- Auto-save to this browser (safety net against refreshes) ----------
+function saveAutoSave(){
+
+    try{
+
+        const data = {
+            assignments: assignments,
+            rallyMembers: RALLIES.map(function(r){ return r.members; }),
+            rallyNames: RALLIES.map(function(r){ return r.name; }),
+            rallyDescriptions: RALLIES.map(function(r){ return r.description || ""; })
+        };
+
+        localStorage.setItem("battlePlannerAutoSave", JSON.stringify(data));
+
+    } catch(error){
+        console.error("Auto-save failed", error);
+    }
+
+}
+
+function restoreAutoSave(){
+
+    try{
+
+        const saved = localStorage.getItem("battlePlannerAutoSave");
+
+        if(!saved) return;
+
+        const parsed = JSON.parse(saved);
+
+        if(Array.isArray(parsed)){
+
+            assignments = parsed;   // old save format, from before rallies existed
+
+        } else {
+
+            assignments = parsed.assignments || [];
+
+            if(parsed.rallyMembers){
+                parsed.rallyMembers.forEach(function(members, i){
+                    if(RALLIES[i]) RALLIES[i].members = members.map(function(m){
+                        if(typeof m === "string") return { name: m, heroes: [], note: "" };
+                        return { name: m.name, heroes: m.heroes || [], note: m.note || "" };
+                    });
+                });
+            }
+
+            if(parsed.rallyNames){
+                parsed.rallyNames.forEach(function(name, i){
+                    if(RALLIES[i]){
+                        RALLIES[i].name = name;
+                        const option = document.getElementById("rallyOption-" + i);
+                        if(option) option.textContent = name;
+                    }
+                });
+            }
+
+            if(parsed.rallyDescriptions){
+                parsed.rallyDescriptions.forEach(function(desc, i){
+                    if(RALLIES[i]) RALLIES[i].description = desc;
+                });
+            }
+
+        }
+
+        updatePlayerListStyles();
+        buildRallyOverview();
+        drawMap();
+
+    } catch(error){
+        console.error("Could not restore auto-save", error);
+    }
 
 }
 
@@ -512,43 +1142,6 @@ canvas.addEventListener("click", function(event){
 
 });
 
-// ---------- Handle Player Selection ----------
-document.querySelectorAll(".player").forEach(function(playerEl){
-
-    playerEl.addEventListener("click", function(){
-
-        const name = playerEl.textContent;
-
-        const existing = assignments.find(function(a){
-            return a.name === name;
-        });
-
-        if(existing){
-            selectedAssignments = [existing];
-            selectedTile = null;
-            updateClearButton();
-            drawMap();
-            return;
-        }
-
-        if(!selectedTile) return;
-
-        assignments.push({
-            row: selectedTile.row,
-            col: selectedTile.col,
-            name: name
-        });
-
-        selectedTile = null;
-
-        updateClearButton();
-        updatePlayerListStyles();
-        drawMap();
-
-    });
-
-});
-
 // ---------- Handle Clear (selected) button ----------
 const clearBtn = document.getElementById("clearBtn");
 
@@ -566,7 +1159,9 @@ if(clearBtn){
 
         updateClearButton();
         updatePlayerListStyles();
+        buildRallyOverview();
         drawMap();
+        saveAutoSave();
 
     });
 
@@ -590,7 +1185,45 @@ if(clearAllBtn){
 
         updateClearButton();
         updatePlayerListStyles();
+        buildRallyOverview();
         drawMap();
+        saveAutoSave();
+
+    });
+
+}
+
+// ---------- Handle Set Rally button ----------
+const setRallyBtn = document.getElementById("setRallyBtn");
+
+if(setRallyBtn){
+
+    setRallyBtn.addEventListener("click", function(){
+
+        if(selectedAssignments.length === 0) return;
+
+        const rallySelect = document.getElementById("rallySelect");
+        const rallyIndex = rallySelect ? parseInt(rallySelect.value, 10) : 0;
+
+        const conflicts = selectedAssignments.filter(function(a){
+            const current = getPlayerRally(a.name);
+            return current !== -1 && current !== rallyIndex;
+        });
+
+        if(conflicts.length > 0){
+            const names = conflicts.map(function(a){ return a.name; }).join(", ");
+            const confirmed = confirm("This will move the following player(s) out of their current rally: " + names + ". Continue?");
+            if(!confirmed) return;
+        }
+
+        selectedAssignments.forEach(function(a){
+            setPlayerRally(a.name, rallyIndex);
+        });
+
+        updatePlayerListStyles();
+        buildRallyOverview();
+        drawMap();
+        saveAutoSave();
 
     });
 
@@ -626,13 +1259,12 @@ if(exportBtn){
 
         const { jsPDF } = window.jspdf;
 
-        const scaleFactor = 3;   // render 3x bigger than screen size, for a crisp PDF
+        const scaleFactor = 3;
 
         const originalWidth = canvas.width;
         const originalHeight = canvas.height;
         const originalTileSize = SETTINGS.tileSize;
 
-        // temporarily switch to high-resolution rendering
         canvas.width  = originalWidth * scaleFactor;
         canvas.height = originalHeight * scaleFactor;
         SETTINGS.tileSize = originalTileSize * scaleFactor;
@@ -651,14 +1283,246 @@ if(exportBtn){
 
         pdf.addImage(imageData, "PNG", 0, 0, canvas.width, canvas.height);
 
-        pdf.save("battle-map.pdf");
-
-        // switch back to normal screen resolution
         canvas.width  = originalWidth;
         canvas.height = originalHeight;
         SETTINGS.tileSize = originalTileSize;
 
         drawMap();
+
+        // ---------- Rally page settings (tweak these) ----------
+    // ---------- Rally page settings (tweak these) ----------
+        const pdfScale = 2;   // increase/decrease this to resize the whole rally page relative to the map page
+
+        const pageW = 612 * pdfScale;
+        const pageH = 792 * pdfScale;
+        const margin = 50 * pdfScale;
+
+        const titleFontSize = 32 * pdfScale;
+        const rallyNameFontSize = 24 * pdfScale;
+        const bodyFontSize = 20 * pdfScale;
+
+        const colGap = 24 * pdfScale;
+        const colWidth = (pageW - margin * 2 - colGap * 2) / 3;
+        const colPlayerX = margin;
+        const colHeroX = margin + colWidth + colGap;
+        const colNotesX = margin + (colWidth + colGap) * 2;
+
+        // ---------- Estimate how tall a rally's block will be, without drawing it ----------
+        function measureRallyHeight(rally){
+
+            let h = rallyNameFontSize + 6;
+
+            if(rally.description){
+                pdf.setFont(undefined, "normal");
+                pdf.setFontSize(bodyFontSize);
+                const lines = pdf.splitTextToSize(rally.description, pageW - margin * 2);
+                h += lines.length * (bodyFontSize + 4) + 10;
+            }
+
+            h += bodyFontSize + 12;   // column header row
+
+            rally.members.forEach(function(member){
+
+                const heroText = (member.heroes && member.heroes.length > 0) ? member.heroes.join("/") : "-";
+
+                pdf.setFont(undefined, "normal");
+                pdf.setFontSize(bodyFontSize);
+
+                const heroLines = pdf.splitTextToSize(heroText, colWidth);
+                const noteLines = member.note ? pdf.splitTextToSize(member.note, colWidth) : [""];
+                const rowLines = Math.max(1, heroLines.length, noteLines.length);
+
+                h += rowLines * (bodyFontSize + 6);
+
+            });
+
+            h += 30;
+
+            return h;
+
+        }
+
+        pdf.addPage([pageW, pageH], "portrait");
+
+        let y = 70;
+
+        pdf.setFont(undefined, "bold");
+        pdf.setFontSize(titleFontSize);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text("Rally Overview", pageW / 2, y, { align: "center" });
+        y += titleFontSize + 20;
+
+        RALLIES.forEach(function(rally){
+
+            if(rally.members.length === 0 && !rally.description) return;
+
+            const neededHeight = measureRallyHeight(rally);
+
+            // start a fresh page if this rally won't fit, unless we're already at the top of one
+            if(y + neededHeight > pageH - margin && y > 100){
+                pdf.addPage([pageW, pageH], "portrait");
+                y = 60;
+            }
+
+            const rgb = hexToRgb(rally.colour);
+
+            pdf.setFont(undefined, "bold");
+            pdf.setFontSize(rallyNameFontSize);
+            pdf.setTextColor(rgb.r, rgb.g, rgb.b);
+            pdf.text(rally.name, margin, y);
+            y += rallyNameFontSize + 6;
+
+            pdf.setTextColor(0, 0, 0);
+
+            if(rally.description){
+                pdf.setFont(undefined, "normal");
+                pdf.setFontSize(bodyFontSize);
+                const descLines = pdf.splitTextToSize(rally.description, pageW - margin * 2);
+                pdf.text(descLines, margin, y);
+                y += descLines.length * (bodyFontSize + 4) + 10;
+            }
+
+            pdf.setFont(undefined, "bold");
+            pdf.setFontSize(bodyFontSize);
+            pdf.text("Player", colPlayerX, y);
+            pdf.text("Joiner Hero", colHeroX, y);
+            pdf.text("Notes", colNotesX, y);
+            y += 8;
+
+            pdf.setDrawColor(180, 180, 180);
+            pdf.line(margin, y, pageW - margin, y);
+            y += bodyFontSize + 4;
+
+            pdf.setFont(undefined, "normal");
+            pdf.setFontSize(bodyFontSize);
+
+            rally.members.forEach(function(member){
+
+                const heroText = (member.heroes && member.heroes.length > 0) ? member.heroes.join("/") : "-";
+                const noteText = member.note || "";
+
+                const heroLines = pdf.splitTextToSize(heroText, colWidth);
+                const noteLines = noteText ? pdf.splitTextToSize(noteText, colWidth) : [""];
+                const rowLines = Math.max(1, heroLines.length, noteLines.length);
+
+                pdf.text(member.name, colPlayerX, y);
+                pdf.text(heroLines, colHeroX, y);
+                if(noteText) pdf.text(noteLines, colNotesX, y);
+
+                y += rowLines * (bodyFontSize + 6);
+
+            });
+
+            y += 30;
+
+        });
+
+        pdf.save("battle-map.pdf");
+
+    });
+
+}
+
+// ---------- Handle Save Project ----------
+const saveProjectBtn = document.getElementById("saveProjectBtn");
+
+if(saveProjectBtn){
+
+    saveProjectBtn.addEventListener("click", function(){
+
+        const data = {
+            assignments: assignments,
+            rallyMembers: RALLIES.map(function(r){ return r.members; }),
+            rallyNames: RALLIES.map(function(r){ return r.name; }),
+            rallyDescriptions: RALLIES.map(function(r){ return r.description || ""; })
+        };
+
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "battle-map-save.json";
+        link.click();
+
+        URL.revokeObjectURL(url);
+
+    });
+
+}
+
+// ---------- Handle Load Project ----------
+const loadProjectBtn = document.getElementById("loadProjectBtn");
+const loadProjectInput = document.getElementById("loadProjectInput");
+
+if(loadProjectBtn && loadProjectInput){
+
+    loadProjectBtn.addEventListener("click", function(){
+        loadProjectInput.click();
+    });
+
+    loadProjectInput.addEventListener("change", function(event){
+
+        const file = event.target.files[0];
+
+        if(!file) return;
+
+        const reader = new FileReader();
+
+        reader.onload = function(e){
+
+            try{
+
+                const data = JSON.parse(e.target.result);
+
+                assignments = data.assignments || [];
+                selectedAssignments = [];
+                selectedTile = null;
+
+                if(data.rallyMembers){
+                    data.rallyMembers.forEach(function(members, i){
+                        if(!RALLIES[i]) return;
+                        RALLIES[i].members = members.map(function(m){
+                            if(typeof m === "string") return { name: m, heroes: [], note: "" };
+                            return { name: m.name, heroes: m.heroes || [], note: m.note || "" };
+                        });
+                    });
+                } else {
+                    RALLIES.forEach(function(r){ r.members = []; });
+                }
+
+                if(data.rallyNames){
+                    data.rallyNames.forEach(function(name, i){
+                        if(RALLIES[i]){
+                            RALLIES[i].name = name;
+                            const option = document.getElementById("rallyOption-" + i);
+                            if(option) option.textContent = name;
+                        }
+                    });
+                }
+
+                if(data.rallyDescriptions){
+                    data.rallyDescriptions.forEach(function(desc, i){
+                        if(RALLIES[i]) RALLIES[i].description = desc;
+                    });
+                }
+
+                updateClearButton();
+                updatePlayerListStyles();
+                buildRallyOverview();
+                drawMap();
+                saveAutoSave();
+
+            } catch(error){
+                alert("This file could not be read as a valid save file.");
+            }
+
+        };
+
+        reader.readAsText(file);
+
+        loadProjectInput.value = "";
 
     });
 
@@ -674,7 +1538,7 @@ if(zoomInBtn){
 
         SETTINGS.mapHalf = Math.min(MAX_MAP_HALF, SETTINGS.mapHalf + 1);
 
-        resizeCanvasToFit();
+        updateTileSizeForZoom();
         updateZoomButtons();
         drawMap();
 
@@ -688,7 +1552,7 @@ if(zoomOutBtn){
 
         SETTINGS.mapHalf = Math.max(MIN_MAP_HALF, SETTINGS.mapHalf - 1);
 
-        resizeCanvasToFit();
+        updateTileSizeForZoom();
         updateZoomButtons();
         drawMap();
 
@@ -697,6 +1561,10 @@ if(zoomOutBtn){
 }
 
 // ---------- Initial load ----------
-resizeCanvasToFit();
+measureAndSetCanvasSize();
+updateTileSizeForZoom();
 updateZoomButtons();
+buildRallyOptions();
+buildRallyOverview();
+loadPlayerList();
 drawMap();
