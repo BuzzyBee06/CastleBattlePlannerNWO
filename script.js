@@ -21,6 +21,177 @@ const SETTINGS = {
 const MIN_MAP_HALF = Math.ceil(SETTINGS.castleSize / 2) + 2;
 const MAX_MAP_HALF = Math.ceil(SETTINGS.castleSize / 2) + 12;
 
+// ---------- Default notes text ----------
+const DEFAULT_NOTES_HTML = `
+<p><strong>Rally types:</strong></p>
+<p><br></p>
+<p><strong>Offensive Rally - Old Version</strong> - If you dont have Amadeus, use Zoe.<br>
+<strong>Leader uses:</strong> Amadeus, Petra, Rosa<br>
+<strong>Joiners uses:</strong> Amane, Margot, Chenko, Yeonwoo<br>
+<strong>Formations:</strong> 40/10/50 or 30/10/60</p>
+<p><br></p>
+<p><strong>Offensive Rally - New Version</strong> - If you dont have Amadeus, use Zoe.<br>
+<strong>Leader uses:</strong> Amadeus, Thrudd, Rosa<br>
+<strong>Joiners uses:</strong> Amane, Margot, Chenko, Yeonwoo<br>
+<strong>Formations:</strong> 50/20/30 or 40/20/40</p>
+<p><br></p>
+<p><strong>Primary Defensive Garrison</strong> - You use this one when you see a Saul in your garrison leader!<br>
+<strong>Leader uses:</strong> Alcar, Margot, Saul<br>
+<strong>Joiners uses:</strong> Hilde, Saul, Eric, Gordon<br>
+<strong>Formations:</strong> 60/40/0</p>
+<p><br></p>
+<p><strong>Secondary Defensive Garrison</strong> - Used if your garrison leader does not have Saul.<br>
+<strong>Leader uses:</strong> Alcar, Margot, Vivian<br>
+<strong>Joiners uses:</strong> Saul, Eric, Gordon, Gordon<br>
+<strong>Formations:</strong> 50/20/30</p>
+<p><br></p>
+<p>If you're a rally/garrison leader, remember to swap your strongest heroes gear to the heroes you're leading the rally/garrison with.</p>
+<p><br></p>
+<p><strong>Rally Join time:</strong><br>
+When a Rally is started (opened), the people listed with assigned heroes join first. They have the first 30 seconds of the rally to do this (from minute 5 to minute 4:30).<br>
+After the 30 seconds, everyone else from the list joins. (from minute 4:30 to minute 4).<br>
+After the first minute, everyone with TG 5 can join. (from minute 4 to minute 3).<br>
+After the second minute the rally opens for free for all joining. (from minute 3 to 0).</p>
+<p><br></p>
+<p><strong>Garrison Rules:</strong><br>
+Only TG 5 level troops in the Castle Garrison.<br>
+In Turret garrisons try to identify if its 60/40 formation or 50/20/30 formation.<br>
+Hero gear on your heroes in the Garrison, don't matter, if you're not the garrison leader. Use the assigned hero to apply the wanted buffs.<br>
+Put your best gear on the heroes you will be sending reinforcements with. Less troops injured, if a reinforcement run hits an enemy garrison.</p>
+<p><br></p>
+<p><strong>Free for All</strong><br>
+If your name is not in the above lists, you're free for all, until told otherwise. This means you can fill any rally when the count down timer hits 2 minutes remaining. It means you're free to open rallies against enemy positions. If there is not a rally to join, open 1.<br>
+Do not solo walk (solo attack), unless its at minute 0, or to hand off castle.<br>
+The above counts as long as we're fighting seriously for the castle. It will be clearly called if we turn to a state where you're free to fire at will.</p>
+`;
+
+
+// ---------- Quill Notes Editor ----------
+const NOTES_EXPORT_FONT_SCALE = 0.75;   // tweak this (try 0.75 first) if notes text still looks bigger/smaller than rally text after testing
+
+const quill = new Quill("#notesEditor", {
+    theme: "snow",
+    modules: {
+        toolbar: [
+            [{ header: [1, 2, false] }],
+            ["bold", "italic", "underline"],
+            [{ color: [] }],
+            ["clean"]
+        ],
+        keyboard: {
+            bindings: {
+                tab: {
+                    key: 9,
+                    handler: function(range){
+                        this.quill.insertText(range.index, "\u00A0\u00A0\u00A0\u00A0");
+                        this.quill.setSelection(range.index + 4);
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+});
+
+quill.on("text-change", function(){
+    updateNotesPageBreaks();
+    saveAutoSave();
+});
+
+if(notesTitleInput){
+    notesTitleInput.addEventListener("input", function(){
+        saveAutoSave();
+    });
+}
+
+// ---------- Make the editor genuinely match the export page (true size, scrolls horizontally if needed) ----------
+function syncEditorToExportSize(){
+
+    const exportPdfScale = 2;   // must match your PDF export's pdfScale
+    const exportPageW = 612 * exportPdfScale;
+    const exportMargin = 50 * exportPdfScale;
+    const exportWidth = exportPageW - exportMargin * 2;
+
+    const exportTitleFontSize = 32 * exportPdfScale * NOTES_EXPORT_FONT_SCALE;
+    const exportRallyNameFontSize = 24 * exportPdfScale * NOTES_EXPORT_FONT_SCALE;
+    const exportBodyFontSize = 20 * exportPdfScale * NOTES_EXPORT_FONT_SCALE;
+
+    const editorEl = document.querySelector("#notesEditor .ql-editor");
+
+    if(!editorEl) return;
+
+    editorEl.style.width = exportWidth + "px";
+    editorEl.style.fontSize = exportBodyFontSize + "px";
+
+    editorEl.querySelectorAll("h1").forEach(function(el){ el.style.fontSize = exportTitleFontSize + "px"; });
+    editorEl.querySelectorAll("h2").forEach(function(el){ el.style.fontSize = exportRallyNameFontSize + "px"; });
+
+}
+
+quill.on("text-change", function(){
+    syncEditorToExportSize();
+    saveAutoSave();
+});
+
+window.addEventListener("resize", function(){
+    syncEditorToExportSize();
+});
+
+
+// ---------- Page-break guide removed - export pagination is handled automatically and reliably ----------
+function updateNotesPageBreaks(){
+    // intentionally left blank
+}
+
+// ---------- Convert <br> line breaks into real paragraph splits (html2canvas doesn't reliably render <br>) ----------
+function normalizeBreaksForExport(container){
+
+    container.querySelectorAll("br").forEach(function(br){
+
+        // if this <br> is the only thing in its paragraph (a blank line),
+        // leave it alone - removing it would collapse the blank line to zero height
+        if(!br.nextSibling && br.parentElement.childNodes.length === 1) return;
+
+        const parent = br.parentElement;
+        const tag = parent.tagName.toLowerCase();
+
+        const newEl = document.createElement(tag);
+
+        let node = br.nextSibling;
+
+        while(node){
+            const next = node.nextSibling;
+            newEl.appendChild(node);
+            node = next;
+        }
+
+        br.remove();
+        parent.after(newEl);
+
+    });
+
+}
+
+ 
+
+// ---------- Load default notes text if nothing has been saved yet ----------
+function initializeNotesIfEmpty(){
+
+    if(quill){
+
+        const currentHTML = quill.root.innerHTML.trim();
+        const isEmpty = (currentHTML === "" || currentHTML === "<p><br></p>");
+
+        if(isEmpty){
+            quill.clipboard.dangerouslyPasteHTML(DEFAULT_NOTES_HTML);
+        }
+
+    }
+
+}
+
+
+
 // ---------- Work out tile size to fill a FIXED canvas box ----------
 let fixedAvailableSpace = null;
 
@@ -1027,13 +1198,39 @@ function saveAutoSave(){
             assignments: assignments,
             rallyMembers: RALLIES.map(function(r){ return r.members; }),
             rallyNames: RALLIES.map(function(r){ return r.name; }),
-            rallyDescriptions: RALLIES.map(function(r){ return r.description || ""; })
+            rallyDescriptions: RALLIES.map(function(r){ return r.description || ""; }),
+            notesTitle: notesTitleInput ? notesTitleInput.value : "Notes",
+            notesHTML: quill.root.innerHTML
         };
 
         localStorage.setItem("battlePlannerAutoSave", JSON.stringify(data));
 
     } catch(error){
         console.error("Auto-save failed", error);
+    }
+
+}
+
+function restoreNotesOnly(){
+
+    try{
+
+        const saved = localStorage.getItem("battlePlannerAutoSave");
+
+        if(!saved) return;
+
+        const parsed = JSON.parse(saved);
+
+        if(Array.isArray(parsed)) return;   // old save format, no notes info
+
+        if(notesTitleInput) notesTitleInput.value = parsed.notesTitle || "Notes";
+
+        if(parsed.notesHTML !== undefined){
+            quill.root.innerHTML = parsed.notesHTML;
+        }
+
+    } catch(error){
+        console.error("Could not restore notes", error);
     }
 
 }
@@ -1080,6 +1277,11 @@ function restoreAutoSave(){
                     if(RALLIES[i]) RALLIES[i].description = desc;
                 });
             }
+
+            if(notesTitleInput) notesTitleInput.value = parsed.notesTitle || "Notes";
+
+           quill.clipboard.dangerouslyPasteHTML((parsed.notesHTML !== undefined) ? parsed.notesHTML : DEFAULT_NOTES_HTML);
+            updateNotesPageBreaks();
 
         }
 
@@ -1193,6 +1395,24 @@ if(clearAllBtn){
 
 }
 
+// ---------- Reset button (clears saved data and reloads fresh, for testing) ----------
+const resetPageBtn = document.getElementById("resetPageBtn");
+
+if(resetPageBtn){
+
+    resetPageBtn.addEventListener("click", function(){
+
+        const confirmed = confirm("This will erase ALL saved data (map, rallies, notes) and reload the page fresh. Continue?");
+
+        if(!confirmed) return;
+
+        localStorage.removeItem("battlePlannerAutoSave");
+        location.reload();
+
+    });
+
+}
+
 // ---------- Handle Set Rally button ----------
 const setRallyBtn = document.getElementById("setRallyBtn");
 
@@ -1250,12 +1470,65 @@ if(searchBox){
 
 }
 
+// ---------- Find safe places to cut a block of HTML content into pages ----------
+// Never cuts through the middle of a paragraph/line - only in the gaps between them.
+function findSafePageBreaks(container, availableHeightPerPage){
+
+    const containerTop = container.getBoundingClientRect().top;
+    const units = [];
+
+    Array.from(container.children).forEach(function(child){
+
+        const rect = child.getBoundingClientRect();
+        const top = rect.top - containerTop;
+        const bottom = rect.bottom - containerTop;
+        const height = bottom - top;
+
+        if(height > availableHeightPerPage){
+
+            // this single block is taller than a page - split it by its own lines instead
+            const range = document.createRange();
+            range.selectNodeContents(child);
+
+            Array.from(range.getClientRects()).forEach(function(r){
+                units.push({ top: r.top - containerTop, bottom: r.bottom - containerTop });
+            });
+
+        } else {
+
+            units.push({ top: top, bottom: bottom });
+
+        }
+
+    });
+
+    const pages = [];
+    let pageStart = 0;
+    let pageEnd = 0;
+
+    units.forEach(function(u){
+
+        if(u.bottom - pageStart > availableHeightPerPage && u.bottom > pageEnd){
+            pages.push({ start: pageStart, end: pageEnd });
+            pageStart = u.top;
+        }
+
+        pageEnd = u.bottom;
+
+    });
+
+    pages.push({ start: pageStart, end: Math.max(pageEnd, container.scrollHeight) });
+
+    return pages;
+
+}
+
 // ---------- Handle PDF Export ----------
 const exportBtn = document.getElementById("exportBtn");
 
 if(exportBtn){
 
-    exportBtn.addEventListener("click", function(){
+    exportBtn.addEventListener("click", async function(){
 
         const { jsPDF } = window.jspdf;
 
@@ -1289,7 +1562,7 @@ if(exportBtn){
 
         drawMap();
 
-        // ---------- Rally page settings (tweak these) ----------
+      
     // ---------- Rally page settings (tweak these) ----------
         const pdfScale = 2;   // increase/decrease this to resize the whole rally page relative to the map page
 
@@ -1417,11 +1690,136 @@ if(exportBtn){
 
         });
 
-        pdf.save("battle-map.pdf");
 
-    });
+// ---------- Notes pages ----------
+        const notesTitleText = notesTitleInput ? (notesTitleInput.value || "Notes") : "Notes";
+        const notesContentHTML = quill.root.innerHTML;
+
+        const notesContainer = document.createElement("div");
+        notesContainer.style.position = "absolute";
+        notesContainer.style.left = "-100000px";
+        notesContainer.style.top = "0";
+        notesContainer.style.boxSizing = "border-box";
+        notesContainer.style.width = (pageW - margin * 2) + "px";
+        notesContainer.style.background = "#ffffff";
+        notesContainer.style.color = "#000000";
+        notesContainer.style.fontFamily = "Arial, sans-serif";
+
+        const notesTitleEl = document.createElement("div");
+        notesTitleEl.style.boxSizing = "border-box";
+        notesTitleEl.style.fontFamily = "Arial, sans-serif";
+        notesTitleEl.style.fontWeight = "bold";
+        notesTitleEl.style.fontSize = (32 * pdfScale * NOTES_EXPORT_FONT_SCALE) + "px";
+        notesTitleEl.style.lineHeight = "1.2";
+        notesTitleEl.style.marginBottom = "20px";
+        notesTitleEl.style.textAlign = "center";
+        notesTitleEl.textContent = notesTitleText;
+
+        const notesBodyEl = document.createElement("div");
+        notesBodyEl.style.boxSizing = "border-box";
+        notesBodyEl.style.fontFamily = "Arial, sans-serif";
+        notesBodyEl.style.fontSize = (20 * pdfScale * NOTES_EXPORT_FONT_SCALE) + "px";
+        notesBodyEl.style.margin = "0";
+        notesBodyEl.style.whiteSpace = "pre-wrap";
+        notesBodyEl.style.lineHeight = "1.4";
+        notesBodyEl.innerHTML = notesContentHTML;
+        normalizeBreaksForExport(notesBodyEl);
+
+        // scale any manually-applied inline font sizes to match pdfScale
+        notesBodyEl.querySelectorAll("[style]").forEach(function(span){
+            const match = (span.style.fontSize || "").match(/^([\d.]+)px$/);
+            if(!match) return;
+            span.style.fontSize = (parseFloat(match[1]) * pdfScale) + "px";
+        });
+
+        notesContainer.appendChild(notesTitleEl);
+        notesContainer.appendChild(notesBodyEl);
+        document.body.appendChild(notesContainer);
+
+        await new Promise(function(resolve){
+            requestAnimationFrame(function(){ requestAnimationFrame(resolve); });
+        });
+
+        const availableWidth = pageW - margin * 2;
+        const availableHeight = pageH - margin * 2;
+
+        // force consistent sizing on headings/paragraphs, since Quill's own
+// heading styles don't apply outside its normal .ql-editor container
+const headingSizes = {
+    "H1": titleFontSize * NOTES_EXPORT_FONT_SCALE,
+    "H2": rallyNameFontSize * NOTES_EXPORT_FONT_SCALE
+};
+
+notesBodyEl.querySelectorAll("h1, h2, p").forEach(function(el){
+
+    el.style.margin = "0";
+
+    if(headingSizes[el.tagName]){
+        el.style.fontSize = headingSizes[el.tagName] + "px";
+    } else {
+        el.style.fontSize = (bodyFontSize * NOTES_EXPORT_FONT_SCALE) + "px";
+    }
+
+});
+
+        // find safe break points using the actual rendered title + body together
+        const wrapper = document.createElement("div");
+        wrapper.appendChild(notesTitleEl.cloneNode(true));
+
+        const bodyClone = notesBodyEl.cloneNode(true);
+        Array.from(bodyClone.children).forEach(function(child){
+            wrapper.appendChild(child);
+        });
+
+        wrapper.style.width = notesContainer.style.width;
+        notesContainer.innerHTML = "";
+        notesContainer.appendChild(wrapper);
+
+        const pageBreaks = findSafePageBreaks(wrapper, availableHeight);
+
+        const fullCanvas = await html2canvas(notesContainer, {
+            backgroundColor: "#ffffff",
+            scale: 1,
+            useCORS: true,
+            logging: false
+        });
+
+        document.body.removeChild(notesContainer);
+
+        pageBreaks.forEach(function(page){
+
+            pdf.addPage([pageW, pageH], "portrait");
+            pdf.setPage(pdf.internal.getNumberOfPages());
+
+            const sourceY = Math.max(0, Math.round(page.start));
+            const sourceHeight = Math.max(1, Math.round(page.end - page.start));
+
+            const pageCanvas = document.createElement("canvas");
+            pageCanvas.width = fullCanvas.width;
+            pageCanvas.height = sourceHeight;
+
+            const pageCtx = pageCanvas.getContext("2d");
+            pageCtx.fillStyle = "#ffffff";
+            pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+
+            pageCtx.drawImage(
+                fullCanvas,
+                0, sourceY, fullCanvas.width, sourceHeight,
+                0, 0, fullCanvas.width, sourceHeight
+            );
+
+            const pageImage = pageCanvas.toDataURL("image/png");
+            const imageHeight = sourceHeight * (availableWidth / fullCanvas.width);
+
+            pdf.addImage(pageImage, "PNG", margin, margin, availableWidth, imageHeight);
+
+        });
+
+        pdf.save("battle-plan.pdf");
+});
 
 }
+
 
 // ---------- Handle Save Project ----------
 const saveProjectBtn = document.getElementById("saveProjectBtn");
@@ -1508,6 +1906,10 @@ if(loadProjectBtn && loadProjectInput){
                     });
                 }
 
+                if(notesTitleInput) notesTitleInput.value = data.notesTitle || "Notes";
+                quill.clipboard.dangerouslyPasteHTML((data.notesHTML !== undefined) ? data.notesHTML : "");
+                updateNotesPageBreaks();
+
                 updateClearButton();
                 updatePlayerListStyles();
                 buildRallyOverview();
@@ -1566,5 +1968,8 @@ updateTileSizeForZoom();
 updateZoomButtons();
 buildRallyOptions();
 buildRallyOverview();
+restoreNotesOnly();
+initializeNotesIfEmpty();
 loadPlayerList();
 drawMap();
+syncEditorToExportSize()

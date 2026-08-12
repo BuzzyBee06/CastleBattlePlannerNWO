@@ -257,3 +257,59 @@ header{
     padding:6px 12px;
     cursor:pointer;
 }
+
+#notesSection{
+    width:100%;
+    padding:20px;
+    border-top:1px solid #ccc;
+}
+
+.notesTitleInput{
+    display:block;
+    width:100%;
+    font-size:1.5em;
+    font-weight:bold;
+    border:none;
+    background:transparent;
+    padding:4px 0;
+    margin-bottom:12px;
+}
+
+.notesTitleInput:focus{
+    outline:1px solid #ccc;
+}
+
+#notesEditorWrapper{
+    position:relative;
+    border:1px solid #ccc;
+    border-radius:4px;
+    overflow:hidden;
+}
+
+#notesEditorWrapper .ql-toolbar.ql-snow{
+    border:none;
+    border-bottom:1px solid #ccc;
+}
+
+#notesEditorWrapper .ql-container.ql-snow{
+    border:none;
+    overflow-x:auto;
+    overflow-y:visible;
+}
+
+#notesEditor{
+    background:white;
+    min-height:400px;
+}
+
+.ql-editor{
+    font-size:20px;
+    line-height:1.2;
+    white-space:pre-wrap;
+}
+
+#notesEditor .ql-editor p{
+    margin: 0 !important;
+}
+
+

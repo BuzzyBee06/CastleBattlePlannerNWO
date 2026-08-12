@@ -7,6 +7,9 @@
 
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.js"></script>
 </head>
 <body>
 
@@ -33,6 +36,7 @@
 
     <button id="clearBtn" disabled>Clear Selected Spot</button>
     <button id="clearAllBtn">Clear All</button>
+    <button id="resetPageBtn" style="background:#ffdddd; border:1px solid #cc4444;">Reset Page</button>
     <button id="exportBtn">Export as PDF</button>
     <button id="saveProjectBtn">Save Project</button>
     <button id="loadProjectBtn">Load Project</button>
@@ -64,6 +68,18 @@
     <h2>Rally Overview</h2>
     <div id="rallyOverviewList"></div>
 </div>
+
+<div id="notesSection">
+
+    <input type="text" id="notesTitleInput" class="notesTitleInput" value="Notes">
+
+    <div id="notesEditorWrapper">
+    <div id="notesEditor"></div>
+</div>
+
+</div>
+
+   
 
         </main>
 
