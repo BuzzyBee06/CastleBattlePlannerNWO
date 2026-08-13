@@ -312,4 +312,65 @@ header{
     margin: 0 !important;
 }
 
+#zoneControls{
+    margin-top:15px;
+    margin-bottom:15px;
+    padding-top:10px;
+    border-top:1px solid #ccc;
+}
+
+#zoneModeToggle{
+    width:100%;
+    padding:8px;
+}
+
+#zoneModeOptions{
+    margin-top:10px;
+}
+
+#zoneActionRow{
+    display:flex;
+    gap:12px;
+    margin-bottom:8px;
+    font-size:13px;
+}
+
+#zoneSelect{
+    width:100%;
+    padding:6px;
+    margin-bottom:6px;
+}
+
+#addZoneBtn{
+    width:100%;
+    padding:6px;
+}
+
+#zoneOverview{
+    width:100%;
+    padding:20px;
+    border-top:1px solid #ccc;
+}
+
+.zoneCard{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px;
+    background:#f7f7f7;
+    border-radius:4px;
+    margin-bottom:6px;
+}
+
+.zoneNameInput{
+    flex:1;
+    padding:4px 6px;
+}
+
+.zoneTileCount{
+    font-size:12px;
+    color:#666;
+    white-space:nowrap;
+}
+
 

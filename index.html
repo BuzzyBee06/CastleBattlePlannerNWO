@@ -34,6 +34,19 @@
         <button id="setRallyBtn">Set Rally for Selected</button>
     </div>
 
+    <div id="zoneControls">
+    <button id="zoneModeToggle">Enable Zone Mode</button>
+
+    <div id="zoneModeOptions" style="display:none;">
+        <div id="zoneActionRow">
+            <label><input type="radio" name="zoneAction" value="paint" checked> Paint</label>
+            <label><input type="radio" name="zoneAction" value="erase"> Erase</label>
+        </div>
+        <select id="zoneSelect"></select>
+        <button id="addZoneBtn">+ New Zone</button>
+    </div>
+</div>
+
     <button id="clearBtn" disabled>Clear Selected Spot</button>
     <button id="clearAllBtn">Clear All</button>
     <button id="resetPageBtn" style="background:#ffdddd; border:1px solid #cc4444;">Reset Page</button>
@@ -67,6 +80,11 @@
             <div id="rallyOverview">
     <h2>Rally Overview</h2>
     <div id="rallyOverviewList"></div>
+</div>
+
+<div id="zoneOverview">
+    <h2>Zone Overview</h2>
+    <div id="zoneOverviewList"></div>
 </div>
 
 <div id="notesSection">

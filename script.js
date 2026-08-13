@@ -267,16 +267,29 @@ const COLOURS = {
 
 };
 
+// ---------- Alliance zones (freeform, background tint) ----------
+let ZONES = [];
+
+const ZONE_DEFAULT_COLOURS = [
+    "#e6194b", "#3cb44b", "#4363d8", "#f58231",
+    "#911eb4", "#42d4f4", "#f032e6", "#bfef45", "#fabed4"
+];
+
+let zoneColourCounter = 0;
+let zoneModeEnabled = false;
+let zoneAction = "paint";
+let isDraggingZonePaint = false;
+
 // ---------- Rally colours ----------
 const RALLIES = [
     { name: "Rally 1", colour: "#3e23c7ff", members: [], description: "" },
-    { name: "Rally 2", colour: "#88CCEE", members: [], description: "" },
-    { name: "Rally 3", colour: "#26d2b6ff", members: [], description: "" },
+    { name: "Rally 2", colour: "#e33e02ff", members: [], description: "" },
+    { name: "Rally 3", colour: "rgb(32, 180, 76)", members: [], description: "" },
     { name: "Rally 4", colour: "#ea81b4ff", members: [], description: "" },
-    { name: "Rally 5", colour: "#e33e02ff", members: [], description: "" },
-    { name: "Rally 6", colour: "#8c75e9ff", members: [], description: "" },
-    { name: "Rally 7", colour: "#0b8d32ff", members: [], description: "" },
-    { name: "Rally 8", colour: "#770d1dff", members: [], description: "" },
+    { name: "Rally 5", colour: "#8c75e9ff", members: [], description: "" },
+    { name: "Rally 6", colour: "#770d1dff", members: [], description: "" },
+    { name: "Rally 7", colour: "rgb(225, 208, 16)", members: [], description: "" },
+    { name: "Rally 8", colour: "#77c4eb" , members: [], description: "" },
     { name: "Rally 9", colour: "#bd29d1ff", members: [], description: "" }
 ];
 
@@ -415,6 +428,84 @@ function overlapsAssignment(row, col){
         return rowOverlap && colOverlap;
 
     });
+
+}
+
+// ---------- Is this single tile inside the castle? ----------
+function isCastleTile(row, col){
+
+    const castleHalf = SETTINGS.castleSize / 2;
+    const du = excess(row, castleHalf);
+    const dv = excess(col, castleHalf);
+
+    return Math.max(du, dv) === 0;
+
+}
+
+// ---------- Which zone (if any) owns this tile? ----------
+function getZoneIndexAt(row, col){
+
+    for(let i = 0; i < ZONES.length; i++){
+        if(ZONES[i].tiles.some(function(t){ return t.row === row && t.col === col; })) return i;
+    }
+
+    return -1;
+
+}
+
+// ---------- Blend a colour toward white, for a pale background tint ----------
+function paleColour(hex, mix){
+
+    const rgb = hexToRgb(hex);
+
+    const r = Math.round(rgb.r + (255 - rgb.r) * mix);
+    const g = Math.round(rgb.g + (255 - rgb.g) * mix);
+    const b = Math.round(rgb.b + (255 - rgb.b) * mix);
+
+    return "rgb(" + r + "," + g + "," + b + ")";
+
+}
+
+// ---------- Assign a tile to the currently selected zone ----------
+function paintZoneTile(row, col){
+
+    if(isCastleTile(row, col)) return;
+
+    const zoneSelect = document.getElementById("zoneSelect");
+
+    if(!zoneSelect || zoneSelect.value === "") return;
+
+    const zoneIndex = parseInt(zoneSelect.value, 10);
+
+    if(!ZONES[zoneIndex]) return;
+
+    ZONES.forEach(function(zone){
+        zone.tiles = zone.tiles.filter(function(t){ return !(t.row === row && t.col === col); });
+    });
+
+    ZONES[zoneIndex].tiles.push({ row: row, col: col });
+
+}
+
+// ---------- Remove a tile from whichever zone it belongs to ----------
+function eraseZoneTile(row, col){
+
+    ZONES.forEach(function(zone){
+        zone.tiles = zone.tiles.filter(function(t){ return !(t.row === row && t.col === col); });
+    });
+
+}
+
+// ---------- Apply the current paint/erase action to a tile ----------
+function applyZoneAction(row, col){
+
+    if(zoneAction === "paint"){
+        paintZoneTile(row, col);
+    } else {
+        eraseZoneTile(row, col);
+    }
+
+    drawMap();
 
 }
 
@@ -619,10 +710,15 @@ function drawMap(){
 
             const ringDistance = Math.max(du, dv);
 
-            let colour = COLOURS.normal;
-
             if(ringDistance === 0){
                 continue;
+            }
+
+            let colour = COLOURS.normal;
+
+            const zoneIndex = getZoneIndexAt(row, col);
+            if(zoneIndex !== -1){
+                colour = paleColour(ZONES[zoneIndex].colour, 0.75);
             }
 
             if(selectedTile &&
@@ -640,6 +736,9 @@ function drawMap(){
     }
 
     drawCastleImage();
+
+
+
 
     // borders first - the red line will draw on top of these
     assignments.forEach(function(a){
@@ -683,6 +782,50 @@ function drawMap(){
 
     });
 
+    drawZoneLegend();
+
+}
+
+
+// ---------- Draw a small legend for zones in an empty corner of the canvas ----------
+function drawZoneLegend(){
+
+    if(ZONES.length === 0) return;
+
+    const padding = 10;
+    const swatchSize = 14;
+    const lineHeight = 18;
+    const boxWidth = 150;
+    const boxHeight = padding * 2 + ZONES.length * lineHeight;
+
+    const x = padding;
+    const y = canvas.height - boxHeight - padding;
+
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillRect(x, y, boxWidth, boxHeight);
+
+    ctx.strokeStyle = "#999";
+    ctx.strokeRect(x, y, boxWidth, boxHeight);
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.font = "12px Arial";
+
+    ZONES.forEach(function(zone, i){
+
+        const rowY = y + padding + i * lineHeight + lineHeight / 2;
+
+        ctx.fillStyle = zone.colour;
+        ctx.fillRect(x + padding, rowY - swatchSize / 2, swatchSize, swatchSize);
+
+        ctx.strokeStyle = "#666";
+        ctx.strokeRect(x + padding, rowY - swatchSize / 2, swatchSize, swatchSize);
+
+        ctx.fillStyle = "#000";
+        ctx.fillText(zone.name, x + padding + swatchSize + 6, rowY);
+
+    });
+
 }
 
 // ---------- Load player list from a published Google Sheet, then build the sidebar ----------
@@ -715,6 +858,94 @@ function loadPlayerList(){
         .catch(function(error){
             console.error("Could not load player list from Google Sheets", error);
         });
+
+}// ---------- Build the zone dropdown options ----------
+function buildZoneSelect(){
+
+    const select = document.getElementById("zoneSelect");
+
+    if(!select) return;
+
+    select.innerHTML = "";
+
+    ZONES.forEach(function(zone, i){
+
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = zone.name;
+
+        select.appendChild(opt);
+
+    });
+
+}
+
+// ---------- Build the Zone Overview panel below the map ----------
+function buildZoneOverview(){
+
+    const container = document.getElementById("zoneOverviewList");
+
+    if(!container) return;
+
+    container.innerHTML = "";
+
+    ZONES.forEach(function(zone, zoneIndex){
+
+        const card = document.createElement("div");
+        card.className = "zoneCard";
+
+        const colourInput = document.createElement("input");
+        colourInput.type = "color";
+        colourInput.value = zone.colour;
+
+        colourInput.addEventListener("input", function(){
+            zone.colour = colourInput.value;
+            drawMap();
+            saveAutoSave();
+        });
+
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.className = "zoneNameInput";
+        nameInput.value = zone.name;
+
+        nameInput.addEventListener("input", function(){
+            zone.name = nameInput.value;
+            buildZoneSelect();
+            drawMap();
+            saveAutoSave();
+        });
+
+        const countLabel = document.createElement("span");
+        countLabel.className = "zoneTileCount";
+        countLabel.textContent = zone.tiles.length + " tiles";
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "Delete";
+
+        deleteBtn.addEventListener("click", function(){
+
+            const confirmed = confirm("Delete zone \"" + zone.name + "\"? Its tiles will become unassigned.");
+
+            if(!confirmed) return;
+
+            ZONES.splice(zoneIndex, 1);
+
+            buildZoneSelect();
+            buildZoneOverview();
+            drawMap();
+            saveAutoSave();
+
+        });
+
+        card.appendChild(colourInput);
+        card.appendChild(nameInput);
+        card.appendChild(countLabel);
+        card.appendChild(deleteBtn);
+
+        container.appendChild(card);
+
+    });
 
 }
 
@@ -1164,6 +1395,96 @@ function updatePlayerListStyles(){
 
 }
 
+
+// ---------- Handle Add Zone button ----------
+const addZoneBtn = document.getElementById("addZoneBtn");
+
+if(addZoneBtn){
+
+    addZoneBtn.addEventListener("click", function(){
+
+        const colour = ZONE_DEFAULT_COLOURS[zoneColourCounter % ZONE_DEFAULT_COLOURS.length];
+        zoneColourCounter++;
+
+        ZONES.push({
+            name: "Zone " + (ZONES.length + 1),
+            colour: colour,
+            tiles: []
+        });
+
+        buildZoneSelect();
+        buildZoneOverview();
+        saveAutoSave();
+
+    });
+
+}
+
+// ---------- Handle Zone Mode toggle ----------
+const zoneModeToggle = document.getElementById("zoneModeToggle");
+const zoneModeOptions = document.getElementById("zoneModeOptions");
+
+if(zoneModeToggle){
+
+    zoneModeToggle.addEventListener("click", function(){
+
+        zoneModeEnabled = !zoneModeEnabled;
+
+        zoneModeToggle.textContent = zoneModeEnabled ? "Disable Zone Mode" : "Enable Zone Mode";
+
+        if(zoneModeOptions) zoneModeOptions.style.display = zoneModeEnabled ? "block" : "none";
+
+        selectedTile = null;
+        selectedAssignments = [];
+
+        drawMap();
+
+    });
+
+}
+
+// ---------- Handle Paint/Erase radio buttons ----------
+document.querySelectorAll('input[name="zoneAction"]').forEach(function(radio){
+
+    radio.addEventListener("change", function(){
+        if(radio.checked) zoneAction = radio.value;
+    });
+
+});
+
+// ---------- Handle zone painting/erasing via drag on the map ----------
+canvas.addEventListener("mousedown", function(event){
+
+    if(!zoneModeEnabled) return;
+
+    isDraggingZonePaint = true;
+
+    const tile = screenToGrid(event.offsetX, event.offsetY);
+    applyZoneAction(tile.row, tile.col);
+
+});
+
+canvas.addEventListener("mousemove", function(event){
+
+    if(!zoneModeEnabled || !isDraggingZonePaint) return;
+
+    const tile = screenToGrid(event.offsetX, event.offsetY);
+    applyZoneAction(tile.row, tile.col);
+
+});
+
+window.addEventListener("mouseup", function(){
+
+    if(!isDraggingZonePaint) return;
+
+    isDraggingZonePaint = false;
+
+    buildZoneOverview();
+    drawMap();
+    saveAutoSave();
+
+});
+
 // ---------- Enable/disable the Clear button ----------
 function updateClearButton(){
 
@@ -1196,6 +1517,7 @@ function saveAutoSave(){
 
         const data = {
             assignments: assignments,
+            zones: ZONES,
             rallyMembers: RALLIES.map(function(r){ return r.members; }),
             rallyNames: RALLIES.map(function(r){ return r.name; }),
             rallyDescriptions: RALLIES.map(function(r){ return r.description || ""; }),
@@ -1278,6 +1600,12 @@ function restoreAutoSave(){
                 });
             }
 
+            if(parsed.zones){
+                ZONES = parsed.zones;
+                buildZoneSelect();
+                buildZoneOverview();
+            }
+
             if(notesTitleInput) notesTitleInput.value = parsed.notesTitle || "Notes";
 
            quill.clipboard.dangerouslyPasteHTML((parsed.notesHTML !== undefined) ? parsed.notesHTML : DEFAULT_NOTES_HTML);
@@ -1297,6 +1625,8 @@ function restoreAutoSave(){
 
 // ---------- Handle Clicks on the map ----------
 canvas.addEventListener("click", function(event){
+
+    if(zoneModeEnabled) return;
 
     const tile = screenToGrid(event.offsetX, event.offsetY);
 
@@ -1830,6 +2160,7 @@ if(saveProjectBtn){
 
         const data = {
             assignments: assignments,
+            zones: ZONES,
             rallyMembers: RALLIES.map(function(r){ return r.members; }),
             rallyNames: RALLIES.map(function(r){ return r.name; }),
             rallyDescriptions: RALLIES.map(function(r){ return r.description || ""; })
@@ -1906,6 +2237,16 @@ if(loadProjectBtn && loadProjectInput){
                     });
                 }
 
+                if(data.zones){
+                    ZONES = data.zones;
+                    buildZoneSelect();
+                    buildZoneOverview();
+                } else {
+                    ZONES = [];
+                    buildZoneSelect();
+                    buildZoneOverview();
+                }
+
                 if(notesTitleInput) notesTitleInput.value = data.notesTitle || "Notes";
                 quill.clipboard.dangerouslyPasteHTML((data.notesHTML !== undefined) ? data.notesHTML : "");
                 updateNotesPageBreaks();
@@ -1971,5 +2312,7 @@ buildRallyOverview();
 restoreNotesOnly();
 initializeNotesIfEmpty();
 loadPlayerList();
+buildZoneSelect();
+buildZoneOverview();
 drawMap();
 syncEditorToExportSize()
