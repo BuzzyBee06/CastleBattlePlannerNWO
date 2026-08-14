@@ -24,18 +24,22 @@
         placeholder="Search players..."
     >
 
-    <div id="playerList">
-        <!-- player names are now loaded automatically from players.json -->
-    </div>
+   <div id="playerList">
+    <!-- player names are now loaded automatically from players.json -->
+</div>
 
-    <div id="rallyControls">
-        <label for="rallySelect">Rally:</label>
-        <select id="rallySelect"></select>
-        <button id="setRallyBtn">Set Rally for Selected</button>
-    </div>
+<button id="clearBtn" disabled>Clear Selected Spot</button>
+<button id="clearAllBtn" class="dangerButton">Clear All Player Placements</button>
 
-    <div id="zoneControls">
-    <button id="zoneModeToggle">Enable Zone Mode</button>
+<div id="zoneControls">
+   <div id="zoneModeToggleWrapper">
+    <span id="labelPlayerMode" class="toggleModeLabel activeMode">Player Placement</span>
+    <label class="toggleSwitch">
+        <input type="checkbox" id="zoneModeToggle">
+        <span class="toggleSlider"></span>
+    </label>
+    <span id="labelZoneMode" class="toggleModeLabel">Zone Editing</span>
+</div>
 
     <div id="zoneModeOptions" style="display:none;">
         <div id="zoneActionRow">
@@ -44,16 +48,22 @@
         </div>
         <select id="zoneSelect"></select>
         <button id="addZoneBtn">+ New Zone</button>
+        <button id="clearAllZonesBtn" class="dangerButton">Clear All Zones</button>
     </div>
 </div>
 
-    <button id="clearBtn" disabled>Clear Selected Spot</button>
-    <button id="clearAllBtn">Clear All</button>
-    <button id="resetPageBtn" style="background:#ffdddd; border:1px solid #cc4444;">Reset Page</button>
-    <button id="exportBtn">Export as PDF</button>
-    <button id="saveProjectBtn">Save Project</button>
-    <button id="loadProjectBtn">Load Project</button>
-    <input type="file" id="loadProjectInput" accept=".json" style="display:none">
+<div id="rallyControls">
+    <label for="rallySelect">Rally:</label>
+    <select id="rallySelect"></select>
+    <button id="setRallyBtn">Set Rally for Selected</button>
+    <button id="clearAllRalliesBtn" class="dangerButton">Clear All Rally Assignments</button>
+</div>
+
+<button id="exportBtn">Export as PDF</button>
+<button id="saveProjectBtn">Save Project</button>
+<button id="loadProjectBtn">Load Project</button>
+<input type="file" id="loadProjectInput" accept=".json" style="display:none">
+<button id="resetPageBtn" style="background:#ffdddd; border:1px solid #cc4444;">Reset Page</button>
 
 </aside>
 
@@ -75,27 +85,30 @@
 
                 <canvas id="battleMap"></canvas>
 
-            </div>
+               </div>
 
-            <div id="rallyOverview">
-    <h2>Rally Overview</h2>
-    <div id="rallyOverviewList"></div>
-</div>
-
-<div id="zoneOverview">
-    <h2>Zone Overview</h2>
+            <<details id="zoneOverview" open>
+    <summary><h2 style="display:inline;">Zone Overview</h2></summary>
     <div id="zoneOverviewList"></div>
-</div>
+</details>
 
-<div id="notesSection">
+<details id="rallyOverview">
+    <summary><h2 style="display:inline;">Rally Overview</h2></summary>
+    <div id="rallyOverviewList"></div>
+</details>
+
+<details id="notesSection">
+    <summary><h2 style="display:inline;">Notes</h2></summary>
 
     <input type="text" id="notesTitleInput" class="notesTitleInput" value="Notes">
 
     <div id="notesEditorWrapper">
-    <div id="notesEditor"></div>
-</div>
+        <div id="notesEditor"></div>
+    </div>
+</details>
 
-</div>
+   </div>
+
 
    
 

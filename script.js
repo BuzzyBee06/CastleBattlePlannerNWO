@@ -270,27 +270,30 @@ const COLOURS = {
 // ---------- Alliance zones (freeform, background tint) ----------
 let ZONES = [];
 
-const ZONE_DEFAULT_COLOURS = [
-    "#e6194b", "#3cb44b", "#4363d8", "#f58231",
-    "#911eb4", "#42d4f4", "#f032e6", "#bfef45", "#fabed4"
+const ZONE_PALETTE = [
+    "#fcc0cc", "#f5c0e9", "#dfbaf6", "#c4a4f7", "#b8c1f9",
+    "#b1edfa", "#b2f6e0", "#c2f7bf", "#d4f2a3", "#f4f6c3", 
+    "#f8d6c8"
 ];
 
 let zoneColourCounter = 0;
 let zoneModeEnabled = false;
 let zoneAction = "paint";
 let isDraggingZonePaint = false;
+let zoneDragStart = null;
+let zoneDragCurrent = null;
 
 // ---------- Rally colours ----------
 const RALLIES = [
     { name: "Rally 1", colour: "#3e23c7ff", members: [], description: "" },
     { name: "Rally 2", colour: "#e33e02ff", members: [], description: "" },
-    { name: "Rally 3", colour: "rgb(32, 180, 76)", members: [], description: "" },
-    { name: "Rally 4", colour: "#ea81b4ff", members: [], description: "" },
-    { name: "Rally 5", colour: "#8c75e9ff", members: [], description: "" },
-    { name: "Rally 6", colour: "#770d1dff", members: [], description: "" },
-    { name: "Rally 7", colour: "rgb(225, 208, 16)", members: [], description: "" },
-    { name: "Rally 8", colour: "#77c4eb" , members: [], description: "" },
-    { name: "Rally 9", colour: "#bd29d1ff", members: [], description: "" }
+    { name: "Rally 3", colour: "rgb(22, 213, 31)", members: [], description: "" },
+    { name: "Rally 4", colour: "rgb(206, 27, 114)", members: [], description: "" },
+    { name: "Rally 5", colour: "rgb(113, 15, 188)", members: [], description: "" },
+    { name: "Rally 6", colour: "rgb(124, 8, 25)", members: [], description: "" },
+    { name: "Rally 7", colour: "rgb(227, 189, 0)", members: [], description: "" },
+    { name: "Rally 8", colour: "#0d93b1" , members: [], description: "" },
+    { name: "Rally 9", colour: "rgb(191, 16, 203)", members: [], description: "" }
 ];
 
 // ---------- Available joining heroes (edit this list as needed) ----------
@@ -717,9 +720,9 @@ function drawMap(){
             let colour = COLOURS.normal;
 
             const zoneIndex = getZoneIndexAt(row, col);
-            if(zoneIndex !== -1){
-                colour = paleColour(ZONES[zoneIndex].colour, 0.75);
-            }
+if(zoneIndex !== -1){
+    colour = ZONES[zoneIndex].colour;
+}
 
             if(selectedTile &&
                (row === selectedTile.row || row === selectedTile.row + 1) &&
@@ -783,25 +786,58 @@ function drawMap(){
     });
 
     drawZoneLegend();
+    drawZoneDragPreview();
 
 }
 
+function drawZoneDragPreview(){
+
+    if(!zoneDragStart || !zoneDragCurrent) return;
+
+    const rowMin = Math.min(zoneDragStart.row, zoneDragCurrent.row);
+    const rowMax = Math.max(zoneDragStart.row, zoneDragCurrent.row);
+    const colMin = Math.min(zoneDragStart.col, zoneDragCurrent.col);
+    const colMax = Math.max(zoneDragStart.col, zoneDragCurrent.col);
+
+    const s = SETTINGS.tileSize;
+
+    ctx.fillStyle = "rgba(51,153,255,0.35)";
+
+    for(let row = rowMin; row <= rowMax; row++){
+        for(let col = colMin; col <= colMax; col++){
+
+            const pos = toScreen(row, col);
+
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y - s / 2);
+            ctx.lineTo(pos.x + s / 2, pos.y);
+            ctx.lineTo(pos.x, pos.y + s / 2);
+            ctx.lineTo(pos.x - s / 2, pos.y);
+            ctx.closePath();
+            ctx.fill();
+
+        }
+    }
+
+}
 
 // ---------- Draw a small legend for zones in an empty corner of the canvas ----------
 function drawZoneLegend(){
 
     if(ZONES.length === 0) return;
 
-    const padding = 10;
-    const swatchSize = 14;
-    const lineHeight = 18;
-    const boxWidth = 150;
+    const s = SETTINGS.tileSize;
+
+    const padding = s * 0.55;
+    const swatchSize = s * 0.85;
+    const lineHeight = s * 1.1;
+    const boxWidth = s * 7.5;
     const boxHeight = padding * 2 + ZONES.length * lineHeight;
 
     const x = padding;
     const y = canvas.height - boxHeight - padding;
 
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
     ctx.fillRect(x, y, boxWidth, boxHeight);
 
     ctx.strokeStyle = "#999";
@@ -809,7 +845,7 @@ function drawZoneLegend(){
 
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.font = "12px Arial";
+    ctx.font = Math.round(s * 0.6) + "px Arial";
 
     ZONES.forEach(function(zone, i){
 
@@ -894,15 +930,40 @@ function buildZoneOverview(){
         const card = document.createElement("div");
         card.className = "zoneCard";
 
-        const colourInput = document.createElement("input");
-        colourInput.type = "color";
-        colourInput.value = zone.colour;
+        const paletteRow = document.createElement("div");
+paletteRow.className = "zonePaletteRow";
 
-        colourInput.addEventListener("input", function(){
-            zone.colour = colourInput.value;
+const usedByOtherZones = ZONES
+    .filter(function(z){ return z !== zone; })
+    .map(function(z){ return z.colour; });
+
+ZONE_PALETTE.forEach(function(colour){
+
+    const isTaken = usedByOtherZones.includes(colour);
+    const isSelected = (colour === zone.colour);
+
+    const swatch = document.createElement("div");
+    swatch.className = "zoneSwatchBtn" +
+        (isSelected ? " selected" : "") +
+        (isTaken ? " taken" : "");
+
+    swatch.style.background = colour;
+    swatch.title = isTaken ? "Already used by another zone" : "";
+
+    if(!isTaken){
+
+        swatch.addEventListener("click", function(){
+            zone.colour = colour;
+            buildZoneOverview();
             drawMap();
             saveAutoSave();
         });
+
+    }
+
+    paletteRow.appendChild(swatch);
+
+});
 
         const nameInput = document.createElement("input");
         nameInput.type = "text";
@@ -938,7 +999,7 @@ function buildZoneOverview(){
 
         });
 
-        card.appendChild(colourInput);
+        card.appendChild(paletteRow);
         card.appendChild(nameInput);
         card.appendChild(countLabel);
         card.appendChild(deleteBtn);
@@ -991,9 +1052,17 @@ function buildRallyOverview(){
         const header = document.createElement("div");
         header.className = "rallyCardHeader";
 
-        const swatch = document.createElement("div");
-        swatch.className = "rallySwatch";
-        swatch.style.background = rally.colour;
+        const swatch = document.createElement("input");
+swatch.type = "color";
+swatch.className = "rallySwatch";
+swatch.value = rally.colour.length === 9 ? rally.colour.slice(0, 7) : rally.colour;
+
+swatch.addEventListener("input", function(){
+    rally.colour = swatch.value;
+    drawMap();
+    updatePlayerListStyles();
+    saveAutoSave();
+});
 
         const nameInput = document.createElement("input");
         nameInput.type = "text";
@@ -1403,7 +1472,7 @@ if(addZoneBtn){
 
     addZoneBtn.addEventListener("click", function(){
 
-        const colour = ZONE_DEFAULT_COLOURS[zoneColourCounter % ZONE_DEFAULT_COLOURS.length];
+        const colour = ZONE_PALETTE[zoneColourCounter % ZONE_PALETTE.length];
         zoneColourCounter++;
 
         ZONES.push({
@@ -1423,14 +1492,17 @@ if(addZoneBtn){
 // ---------- Handle Zone Mode toggle ----------
 const zoneModeToggle = document.getElementById("zoneModeToggle");
 const zoneModeOptions = document.getElementById("zoneModeOptions");
+const labelPlayerMode = document.getElementById("labelPlayerMode");
+const labelZoneMode = document.getElementById("labelZoneMode");
 
 if(zoneModeToggle){
 
-    zoneModeToggle.addEventListener("click", function(){
+    zoneModeToggle.addEventListener("change", function(){
 
-        zoneModeEnabled = !zoneModeEnabled;
+        zoneModeEnabled = zoneModeToggle.checked;
 
-        zoneModeToggle.textContent = zoneModeEnabled ? "Disable Zone Mode" : "Enable Zone Mode";
+        if(labelPlayerMode) labelPlayerMode.classList.toggle("activeMode", !zoneModeEnabled);
+        if(labelZoneMode) labelZoneMode.classList.toggle("activeMode", zoneModeEnabled);
 
         if(zoneModeOptions) zoneModeOptions.style.display = zoneModeEnabled ? "block" : "none";
 
@@ -1457,27 +1529,46 @@ canvas.addEventListener("mousedown", function(event){
 
     if(!zoneModeEnabled) return;
 
-    isDraggingZonePaint = true;
-
     const tile = screenToGrid(event.offsetX, event.offsetY);
-    applyZoneAction(tile.row, tile.col);
+    zoneDragStart = tile;
+    zoneDragCurrent = tile;
+    drawMap();
 
 });
 
 canvas.addEventListener("mousemove", function(event){
 
-    if(!zoneModeEnabled || !isDraggingZonePaint) return;
+    if(!zoneModeEnabled || !zoneDragStart) return;
 
     const tile = screenToGrid(event.offsetX, event.offsetY);
-    applyZoneAction(tile.row, tile.col);
+    zoneDragCurrent = tile;
+    drawMap();
 
 });
 
 window.addEventListener("mouseup", function(){
 
-    if(!isDraggingZonePaint) return;
+    if(!zoneModeEnabled || !zoneDragStart || !zoneDragCurrent) return;
 
-    isDraggingZonePaint = false;
+    const rowMin = Math.min(zoneDragStart.row, zoneDragCurrent.row);
+    const rowMax = Math.max(zoneDragStart.row, zoneDragCurrent.row);
+    const colMin = Math.min(zoneDragStart.col, zoneDragCurrent.col);
+    const colMax = Math.max(zoneDragStart.col, zoneDragCurrent.col);
+
+    for(let row = rowMin; row <= rowMax; row++){
+        for(let col = colMin; col <= colMax; col++){
+
+            if(zoneAction === "paint"){
+                paintZoneTile(row, col);
+            } else {
+                eraseZoneTile(row, col);
+            }
+
+        }
+    }
+
+    zoneDragStart = null;
+    zoneDragCurrent = null;
 
     buildZoneOverview();
     drawMap();
@@ -1699,7 +1790,7 @@ if(clearBtn){
 
 }
 
-// ---------- Handle Clear All button ----------
+// ---------- Handle Clear All map button ----------
 const clearAllBtn = document.getElementById("clearAllBtn");
 
 if(clearAllBtn){
@@ -1724,6 +1815,52 @@ if(clearAllBtn){
     });
 
 }
+
+// ---------- Handle Clear All rally button ----------
+const clearAllRalliesBtn = document.getElementById("clearAllRalliesBtn");
+
+if(clearAllRalliesBtn){
+
+    clearAllRalliesBtn.addEventListener("click", function(){
+
+        const confirmed = confirm("Remove all players from all rallies? Their map placements will not be affected.");
+
+        if(!confirmed) return;
+
+        RALLIES.forEach(function(rally){ rally.members = []; });
+
+        updatePlayerListStyles();
+        buildRallyOverview();
+        drawMap();
+        saveAutoSave();
+
+    });
+
+}
+
+// ---------- Handle Clear All zones button ----------
+const clearAllZonesBtn = document.getElementById("clearAllZonesBtn");
+
+if(clearAllZonesBtn){
+
+    clearAllZonesBtn.addEventListener("click", function(){
+
+        const confirmed = confirm("Delete ALL zones? This cannot be undone.");
+
+        if(!confirmed) return;
+
+        ZONES = [];
+
+        buildZoneSelect();
+        buildZoneOverview();
+        drawMap();
+        saveAutoSave();
+
+    });
+
+}
+
+
 
 // ---------- Reset button (clears saved data and reloads fresh, for testing) ----------
 const resetPageBtn = document.getElementById("resetPageBtn");

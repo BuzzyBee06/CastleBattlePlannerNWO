@@ -17,6 +17,7 @@ body{
     background:#f0f0f0;
     padding:20px;
     border-right:1px solid #ccc;
+    overflow-y:auto;
 }
 
 #playerSearch{
@@ -46,14 +47,7 @@ body{
     margin-top:10px;
 }
 
-#clearAllBtn{
-    width:100%;
-    padding:10px;
-    margin-top:10px;
-    margin-bottom:25px;
-    background:#ffdddd;
-    border:1px solid #cc4444;
-}
+
 
 #saveProjectBtn, #loadProjectBtn{
     width:100%;
@@ -131,6 +125,51 @@ header{
     margin-bottom:15px;
 }
 
+details > summary{
+    margin-bottom: 12px;
+}
+
+#zoneModeToggleWrapper{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    margin-bottom:14px;
+}
+
+.zoneSwatchBtn.taken{
+    opacity:0.25;
+    cursor:not-allowed;
+}
+
+.zonePaletteRow{
+    display:flex;
+    flex-wrap:wrap;
+    gap:4px;
+}
+
+.zoneSwatchBtn{
+    width:22px;
+    height:22px;
+    border-radius:4px;
+    border:2px solid transparent;
+    cursor:pointer;
+}
+
+.zoneSwatchBtn.selected{
+    border-color:#000;
+}
+
+.toggleModeLabel{
+    font-size:12px;
+    color:#999;
+}
+
+.toggleModeLabel.activeMode{
+    font-weight:bold;
+    color:#000;
+}
+
 #rallySelect{
     width:100%;
     padding:6px;
@@ -167,9 +206,12 @@ header{
 }
 
 .rallySwatch{
-    width:20px;
-    height:20px;
+    width:28px;
+    height:28px;
     border-radius:4px;
+    border:1px solid #ccc;
+    padding:0;
+    cursor:pointer;
     flex-shrink:0;
 }
 
@@ -319,9 +361,61 @@ header{
     border-top:1px solid #ccc;
 }
 
-#zoneModeToggle{
-    width:100%;
-    padding:8px;
+#zoneModeToggleWrapper{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:10px;
+}
+
+#zoneModeToggleLabel{
+    font-size:13px;
+    font-weight:bold;
+}
+
+.toggleSwitch{
+    position:relative;
+    display:inline-block;
+    width:44px;
+    height:22px;
+}
+
+.toggleSwitch input{
+    opacity:0;
+    width:0;
+    height:0;
+}
+
+.toggleSlider{
+    position:absolute;
+    cursor:pointer;
+    top:0;
+    left:0;
+    right:0;
+    bottom:0;
+    background-color:#ccc;
+    border-radius:22px;
+    transition:0.2s;
+}
+
+.toggleSlider::before{
+    position:absolute;
+    content:"";
+    height:18px;
+    width:18px;
+    left:2px;
+    top:2px;
+    background-color:white;
+    border-radius:50%;
+    transition:0.2s;
+}
+
+.toggleSwitch input:checked + .toggleSlider{
+    background-color:#3399ff;
+}
+
+.toggleSwitch input:checked + .toggleSlider::before{
+    transform:translateX(22px);
 }
 
 #zoneModeOptions{
@@ -350,6 +444,15 @@ header{
     width:100%;
     padding:20px;
     border-top:1px solid #ccc;
+}
+
+.dangerButton{
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+    background:#ffdddd;
+    border:1px solid #cc4444;
+    cursor:pointer;
 }
 
 .zoneCard{
