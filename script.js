@@ -713,6 +713,8 @@ function drawCastleImage(){
 function drawMap(){
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const castleHalf = SETTINGS.castleSize / 2;
 
