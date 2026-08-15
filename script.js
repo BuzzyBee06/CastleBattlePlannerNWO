@@ -316,11 +316,25 @@ function toScreen(row, col){
 }
 
 // ---------- Convert a hex colour (6 or 8 digit) to RGB values for PDF text colouring ----------
-function hexToRgb(hex){
+function hexToRgb(colourString){
 
-    let h = hex.replace("#", "");
+    const str = colourString.trim();
 
-    if(h.length === 8) h = h.slice(0, 6);   // drop alpha channel if present
+    // handle rgb(...) or rgba(...) strings
+    const rgbMatch = str.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+
+    if(rgbMatch){
+        return {
+            r: parseInt(rgbMatch[1], 10),
+            g: parseInt(rgbMatch[2], 10),
+            b: parseInt(rgbMatch[3], 10)
+        };
+    }
+
+    // handle hex strings (#rrggbb, #rrggbbaa, or shorthand #rgb)
+    let h = str.replace("#", "");
+
+    if(h.length === 8) h = h.slice(0, 6);
     if(h.length === 3) h = h.split("").map(function(c){ return c + c; }).join("");
 
     const num = parseInt(h, 16);
@@ -2011,17 +2025,18 @@ if(exportBtn){
 
         drawMap();
 
-        const imageData = canvas.toDataURL("image/png");
+        const imageData = canvas.toDataURL("image/jpeg", 0.85);
 
         const orientation = canvas.width >= canvas.height ? "landscape" : "portrait";
 
         const pdf = new jsPDF({
             orientation: orientation,
             unit: "px",
-            format: [canvas.width, canvas.height]
+            format: [canvas.width, canvas.height],
+            compress: true
         });
 
-        pdf.addImage(imageData, "PNG", 0, 0, canvas.width, canvas.height);
+        pdf.addImage(imageData, "JPEG", 0, 0, canvas.width, canvas.height);
 
         canvas.width  = originalWidth;
         canvas.height = originalHeight;
@@ -2275,10 +2290,10 @@ notesBodyEl.querySelectorAll("h1, h2, p").forEach(function(el){
                 0, 0, fullCanvas.width, sourceHeight
             );
 
-            const pageImage = pageCanvas.toDataURL("image/png");
+            const pageImage = pageCanvas.toDataURL("image/jpeg", 0.85);
             const imageHeight = sourceHeight * (availableWidth / fullCanvas.width);
 
-            pdf.addImage(pageImage, "PNG", margin, margin, availableWidth, imageHeight);
+            pdf.addImage(pageImage, "JPEG", margin, margin, availableWidth, imageHeight);
 
         });
 
